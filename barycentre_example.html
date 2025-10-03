@@ -7753,10 +7753,10 @@ a.anchor-link {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p>But I am asked to calculate the Barycentres for the Wassertein distance that we calculate for each bin $j$ (where $j \in \{1, \ldots, N\}$). But Barycentre above is for the empirical probability distribution. So I decided to try as follows instead of taking the difference between quantile functions: we can assume each bin as a dataset and calculate their empirical distribution function and hence the barycentres and then calculate the Wasserstein distance.</p>
+<p>But I am asked to calculate the Barycentres for the Wassertein distance that we calculate for each bin $j$ (where $j \in \{1, \ldots, N\}$). But Barycentre above is for the empirical probability distribution. So I decided to try as follows instead of taking the difference between quantile functions: we can assume each bin as a dataset and calculate their empirical distribution function and hence the barycentres and then calculate the Wasserstein distance between the Barycenter of $F_n$ and Barycenter of $G_n$.</p>
 <p>But the problem arises as each bin has distinct number of data points which is not as in above ideal case. Naive, without thinking anything I decided to take $0$ as a data point to make all the bins equal, but this is a mistake.</p>
-<p>So, other way to solve this is interpolation? Let's give it a shot. First I will start with carefully formulating the problem mathematically.</p>
-<p>As you told, we take the $n$ as number of replications for each quantile $q_{\alpha_j}$ for each $j \in \{ 1, \ldots, N \}$. And then calculate their Barycentres.</p>
+<p>So, other way to solve this is interpolation? Let's give it a shot.</p>
+<p>As you told today, we take the $n$ as number of replications for each quantile $q_{\alpha_j}$ for each $j \in \{ 1, \ldots, N \}$. And then calculate their Barycentres of the quantiles.</p>
 </div>
 </div>
 </div>
