@@ -1,4 +1,4 @@
 1. The data is publicaly available with free tier on https://www.marinetraffic.com
-2. This site has not intention to be monetised
+2. This site has no intentions to be monetised
 3. The visualisation is for educational purpose only
-4. Running this code in your local machine means this entity or source not liable to any negative consequences, as some part of it is entirely written by AI
+4. Running this code in your local machine means this entity or source not liable to any negative consequences, as some part of it is entirely written by AI and yet to be reviewed
