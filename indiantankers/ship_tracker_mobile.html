@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>Vessel Tracker 🇮🇳</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0b0f1a;--surface:#111827;--surf2:#1a2235;--border:#1f2d45;
+  --accent:#00c7a8;--danger:#ff4545;--warn:#f59e0b;
+  --text:#e2e8f0;--muted:#64748b;--label:#94a3b8;
+  --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --sheet-peek: 72px;   /* how much sheet peeks when collapsed */
+  --sheet-mid:  52%;    /* half-expanded stop */
+}
+html,body{
+  height:100%;overflow:hidden;
+  background:var(--bg);color:var(--text);
+  font-family:var(--sans);
+  overscroll-behavior:none;
+  touch-action:none; /* we handle all touch */
+}
+
+/* ── Full-screen map ────────────────────────────────────────────────────── */
+#map-wrap{position:fixed;inset:0;background:#071221;touch-action:none}
+#map-svg{width:100%;height:100%;display:block}
+
+/* ── Top bar ────────────────────────────────────────────────────────────── */
+#top-bar{
+  position:fixed;top:0;left:0;right:0;z-index:40;
+  padding:env(safe-area-inset-top,10px) 12px 0;
+  background:linear-gradient(to bottom,rgba(11,15,26,.95) 60%,transparent);
+  pointer-events:none;
+}
+#top-inner{
+  display:flex;align-items:center;gap:8px;
+  height:48px;pointer-events:all;
+}
+#app-title{
+  font-size:11px;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--accent);white-space:nowrap;
+  flex-shrink:0;
+}
+#search-bar{
+  flex:1;display:flex;align-items:center;
+  background:rgba(11,15,26,.92);
+  border:1px solid var(--border);border-radius:8px;
+  height:36px;overflow:hidden;
+}
+#search-input{
+  flex:1;height:100%;padding:0 10px;
+  background:transparent;border:none;
+  color:var(--text);font-family:var(--mono);font-size:12px;
+  outline:none;
+}
+#search-input::placeholder{color:var(--muted)}
+#search-clear{
+  width:32px;height:100%;display:none;align-items:center;justify-content:center;
+  color:var(--muted);font-size:14px;cursor:pointer;flex-shrink:0;
+}
+#ship-count-badge{
+  flex-shrink:0;background:rgba(0,199,168,.12);
+  border:1px solid rgba(0,199,168,.3);border-radius:6px;
+  padding:4px 9px;font-family:var(--mono);font-size:10px;color:var(--accent);
+  white-space:nowrap;
+}
+
+/* ── Search dropdown ────────────────────────────────────────────────────── */
+#search-dropdown{
+  position:fixed;top:calc(env(safe-area-inset-top,10px) + 58px);
+  left:12px;right:12px;z-index:50;
+  background:rgba(11,15,26,.98);border:1px solid var(--border);
+  border-radius:10px;max-height:55vh;overflow-y:auto;
+  overscroll-behavior:contain;display:none;
+  -webkit-overflow-scrolling:touch;
+}
+.sd-item{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;border-bottom:1px solid rgba(31,45,69,.4);
+}
+.sd-item:last-child{border-bottom:none}
+.sd-item:active{background:var(--surf2)}
+.sd-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.sd-name{font-size:13px;font-weight:600;color:var(--text)}
+.sd-meta{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+
+/* ── Proximity picker (bottom centered) ────────────────────────────────── */
+#prox-sheet{
+  position:fixed;bottom:calc(var(--sheet-peek) + 10px + var(--safe-bottom));
+  left:16px;right:16px;z-index:60;
+  background:rgba(11,15,26,.97);border:1px solid var(--border);
+  border-radius:12px;max-height:40vh;overflow-y:auto;
+  overscroll-behavior:contain;display:none;
+  -webkit-overflow-scrolling:touch;
+}
+#prox-sheet .pp-hdr{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);
+}
+.pp-close{font-size:16px;color:var(--muted);cursor:pointer;padding:2px 6px}
+.pp-row{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;border-bottom:1px solid rgba(31,45,69,.4);
+}
+.pp-row:last-child{border-bottom:none}
+.pp-row:active{background:var(--surf2)}
+.pp-cdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pp-name{font-size:13px;font-weight:600;color:var(--text)}
+.pp-meta{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+
+/* ── Bottom sheet ───────────────────────────────────────────────────────── */
+#sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:45;
+  background:var(--surface);
+  border-radius:18px 18px 0 0;
+  border-top:1px solid var(--border);
+  will-change:transform;
+  /* default: collapsed — only peek visible */
+  transform:translateY(calc(100% - var(--sheet-peek) - var(--safe-bottom)));
+  transition:transform .32s cubic-bezier(.4,0,.2,1);
+}
+#sheet.mid  { transform:translateY(calc(100% - var(--sheet-mid) - var(--safe-bottom))); }
+#sheet.full { transform:translateY(0); }
+#sheet.dragging { transition:none; }
+
+/* Drag handle */
+#sheet-handle{
+  display:flex;flex-direction:column;align-items:center;
+  padding:10px 0 6px;gap:6px;cursor:grab;touch-action:none;
+}
+#handle-bar{width:36px;height:4px;border-radius:2px;background:var(--border)}
+#sheet-title{
+  font-size:10px;font-family:var(--mono);letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);padding-bottom:2px;
+}
+
+/* Sheet body */
+#sheet-body{
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  /* height fills from handle to bottom safe area */
+  max-height:calc(100dvh - 80px - env(safe-area-inset-top,0px));
+  padding-bottom:calc(var(--safe-bottom) + 20px);
+}
+#sheet-empty{
+  display:flex;flex-direction:column;align-items:center;
+  padding:24px 20px;gap:8px;text-align:center;
+}
+#sheet-empty .icon{font-size:32px}
+#sheet-empty p{font-size:12px;color:var(--muted);line-height:1.7}
+
+/* ── Detail sections ────────────────────────────────────────────────────── */
+#ship-detail{display:none;padding-bottom:8px}
+.hero{
+  padding:16px 16px 12px;
+  background:linear-gradient(135deg,#0d1d35,#0b1520);
+  border-bottom:1px solid var(--border);
+}
+.type-badge{
+  display:inline-block;font-size:9px;font-family:var(--mono);font-weight:600;
+  letter-spacing:.1em;padding:3px 8px;border-radius:3px;
+  background:rgba(0,199,168,.12);color:var(--accent);
+  border:1px solid rgba(0,199,168,.25);margin-bottom:7px;
+}
+.hero-name{font-size:18px;font-weight:800;color:#fff;line-height:1.2;word-break:break-word}
+.hero-sub{font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+.zone-tag{
+  display:inline-block;font-size:9px;font-family:var(--mono);padding:2px 7px;
+  border-radius:3px;background:rgba(255,69,69,.15);color:var(--danger);
+  border:1px solid rgba(255,69,69,.3);margin-top:5px;
+}
+.last-pos-row{
+  display:flex;align-items:center;gap:8px;padding:9px 16px;
+  background:var(--surf2);border-bottom:1px solid var(--border);
+  font-family:var(--mono);font-size:11px;color:var(--label);
+}
+.pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+.tz-note{
+  margin:8px 16px 4px;padding:7px 11px;
+  background:rgba(0,118,255,.08);border:1px solid rgba(0,118,255,.2);
+  border-radius:5px;font-size:10px;font-family:var(--mono);color:#7eb8ff;line-height:1.7;
+}
+
+/* 2-col stats grid */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);margin-bottom:1px}
+.stat{background:var(--surface);padding:10px 12px}
+.stat.full{grid-column:1/-1}
+.stat-lbl{font-size:9px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.stat-val{font-size:13px;font-weight:600;color:var(--text);word-break:break-word;line-height:1.3}
+.stat-val.acc{color:var(--accent);font-family:var(--mono)}
+
+.sec-head{
+  padding:10px 16px 5px;font-size:9px;font-family:var(--mono);
+  letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+  border-top:1px solid var(--border);margin-top:4px;
+}
+.idr{display:flex;justify-content:space-between;padding:8px 16px;font-family:var(--mono);font-size:11px;border-bottom:1px solid rgba(31,45,69,.4)}
+.idr .k{color:var(--muted);white-space:nowrap}
+.idr .v{color:var(--text);font-weight:600;text-align:right;max-width:60%;word-break:break-all}
+.coords{
+  margin:7px 16px;padding:9px 11px;background:var(--surf2);
+  border:1px solid var(--border);border-radius:5px;
+  font-family:var(--mono);font-size:11px;color:var(--accent);line-height:1.85;
+}
+
+/* ── Legend pill ────────────────────────────────────────────────────────── */
+#legend-pill{
+  position:fixed;top:calc(env(safe-area-inset-top,10px) + 54px);
+  right:12px;z-index:35;pointer-events:none;
+  background:rgba(11,15,26,.88);border:1px solid var(--border);
+  border-radius:8px;padding:6px 10px;
+  font-family:var(--mono);font-size:9px;color:var(--muted);
+  display:flex;flex-direction:column;gap:4px;
+}
+.lprow{display:flex;align-items:center;gap:5px}
+
+/* ── Loading overlay ────────────────────────────────────────────────────── */
+#loader{
+  position:fixed;inset:0;z-index:200;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;padding:24px;
+}
+#loader h2{font-size:20px;font-weight:800;color:var(--accent);letter-spacing:-.02em;text-align:center}
+#loader p{font-size:12px;color:var(--muted);font-family:var(--mono);text-align:center}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loader-error{color:#ff6b6b;font-size:12px;font-family:var(--mono);display:none;max-width:320px;text-align:center;line-height:1.6;white-space:pre-line}
+.pick-btn{
+  padding:12px 28px;background:rgba(0,199,168,.1);
+  border:1.5px solid var(--accent);color:var(--accent);
+  font-family:var(--sans);font-size:13px;font-weight:700;
+  border-radius:8px;cursor:pointer;display:none;
+  -webkit-appearance:none;
+}
+#file-input{display:none}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loader">
+  <h2>⬡ VESSEL TRACKER 🇮🇳</h2>
+  <div class="spinner" id="spinner"></div>
+  <p id="loader-msg">Loading tankers_india.json…</p>
+  <p id="loader-error"></p>
+  <button class="pick-btn" id="btn-pick" onclick="document.getElementById('file-input').click()">Select file</button>
+  <input type="file" id="file-input" accept=".json,.csv" onchange="fallbackLoad(event)"/>
+</div>
+
+<!-- Map -->
+<div id="map-wrap"><svg id="map-svg"></svg></div>
+
+<!-- Top bar -->
+<div id="top-bar">
+  <div id="top-inner">
+    <div id="app-title">⬡ TRACKER 🇮🇳</div>
+    <div id="search-bar">
+      <input id="search-input" type="search" inputmode="search"
+        placeholder="Ship name, IMO, MMSI…"
+        oninput="onSearch(this.value)"
+        onkeydown="searchKey(event)"
+        autocomplete="off" spellcheck="false"/>
+      <div id="search-clear" onclick="clearSearch()">✕</div>
+    </div>
+    <div id="ship-count-badge"><span id="count-val">—</span></div>
+  </div>
+</div>
+
+<!-- Search dropdown -->
+<div id="search-dropdown"></div>
+
+<!-- Proximity picker -->
+<div id="prox-sheet" style="display:none">
+  <div class="pp-hdr">
+    <span id="pp-title">Nearby vessels</span>
+    <span class="pp-close" onclick="closeProxSheet()">✕</span>
+  </div>
+  <div id="pp-list"></div>
+</div>
+
+<!-- Legend -->
+<div id="legend-pill">
+  <div class="lprow">
+    <svg width="10" height="10" viewBox="-5 -6 10 12"><path d="M0,-5 L3.5,4 L0,2 L-3.5,4 Z" fill="#00c7a8"/></svg>Moving
+  </div>
+  <div class="lprow">
+    <svg width="10" height="10" viewBox="-5 -5 10 10"><path d="M0,-4.5 L4.5,0 L0,4.5 L-4.5,0 Z" fill="#f59e0b"/></svg>Stopped
+  </div>
+  <div class="lprow">
+    <svg width="10" height="10" viewBox="-5 -6 10 12"><path d="M0,-5 L3.5,4 L0,2 L-3.5,4 Z" fill="#ff4545"/></svg>In zone
+  </div>
+</div>
+
+<!-- Bottom sheet -->
+<div id="sheet">
+  <div id="sheet-handle" id="sh-handle">
+    <div id="handle-bar"></div>
+    <div id="sheet-title">Tap a vessel</div>
+  </div>
+  <div id="sheet-body">
+    <div id="sheet-empty">
+      <div class="icon">🛢️</div>
+      <p>Tap any tanker on the map to view its details. Use search to find a specific vessel.</p>
+    </div>
+    <div id="ship-detail"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+'use strict';
+
+/* ── Config ─────────────────────────────────────────────────────────────── */
+const QUAD=[
+  [18.9434720,43.1682014],[26.1051959,64.7010612],
+  [32.5929613,49.6103096],[29.6698575,44.6657753],
+];
+const SPEED_STOP    = 0.5;
+const MARKER_PX     = 10;   // slightly larger for fingers
+const ZONE_SW_BASE  = 1.8;
+const ZONE_VR_BASE  = 4;
+const HIT_PX        = 22;   // finger-sized hit radius (px)
+
+/* ── State ──────────────────────────────────────────────────────────────── */
+let currentK    = 1;
+let activeG     = null;
+let allShipData = [];
+let rafPending  = false;
+let searchActive= false;
+
+/* ── Map ────────────────────────────────────────────────────────────────── */
+const svg   = d3.select('#map-svg');
+const gBase = svg.append('g');
+const gZone = svg.append('g');
+const gShips= svg.append('g');
+
+svg.append('defs').html(`
+  <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+`);
+
+svg.insert('rect','g').attr('width','100%').attr('height','100%').attr('fill','#071221');
+
+const proj    = d3.geoNaturalEarth1().scale(160).translate([0,0]);
+const pathGen = d3.geoPath().projection(proj);
+
+gBase.append('path')
+  .datum(d3.geoGraticule()())
+  .attr('fill','none').attr('stroke','#1a2e4a').attr('stroke-width',.4)
+  .attr('d', pathGen);
+
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+  .then(r=>r.json())
+  .then(world=>{
+    gBase.append('g').selectAll('path')
+      .data(topojson.feature(world,world.objects.countries).features)
+      .enter().append('path').attr('d',pathGen)
+        .attr('fill','#1c2e44').attr('stroke','#2d4a6a').attr('stroke-width',.4);
+    gBase.append('path')
+      .datum(topojson.mesh(world,world.objects.countries,(a,b)=>a!==b))
+      .attr('fill','none').attr('stroke','#2d4a6a').attr('stroke-width',.3).attr('d',pathGen);
+    initZone(); resetProj();
+  })
+  .catch(()=>{initZone();resetProj();});
+
+/* ── Danger zone ────────────────────────────────────────────────────────── */
+const zonePoly = gZone.append('polygon')
+  .attr('fill','rgba(255,69,69,.09)').attr('stroke','#ff4545').attr('stroke-dasharray','6,3');
+const zoneVtx  = gZone.selectAll('.zv')
+  .data(QUAD).enter().append('circle').attr('class','zv')
+  .attr('fill','#ff4545').attr('stroke','rgba(255,255,255,.6)');
+
+function initZone(){ updateZonePos(); updateZoneScale(currentK); }
+function updateZonePos(){
+  zonePoly.attr('points',QUAD.map(([la,lo])=>proj([lo,la]).join(',')).join(' '));
+  zoneVtx.each(function([la,lo]){
+    const[x,y]=proj([lo,la]); d3.select(this).attr('cx',x).attr('cy',y);
+  });
+}
+function updateZoneScale(k){
+  zonePoly.attr('stroke-width',ZONE_SW_BASE/k);
+  zoneVtx.attr('r',ZONE_VR_BASE/k).attr('stroke-width',1/k);
+}
+
+/* ── Zoom / pan (touch-aware) ───────────────────────────────────────────── */
+const zoom = d3.zoom().scaleExtent([.4,25])
+  .on('zoom', e=>{
+    const t=e.transform;
+    gBase.attr('transform',t);
+    gZone.attr('transform',t);
+    gShips.attr('transform',t);
+    currentK=t.k;
+    if(!rafPending){
+      rafPending=true;
+      requestAnimationFrame(()=>{ applyZoomScales(currentK); rafPending=false; });
+    }
+    closeProxSheet();
+  });
+svg.call(zoom);
+
+function applyZoomScales(k){
+  gShips.selectAll('.vessel-g').each(function(){
+    d3.select(this).select('.inner').attr('transform',`scale(${1/k})`);
+  });
+  updateZoneScale(k);
+}
+
+function resetProj(){
+  const W=svg.node().clientWidth||375, H=svg.node().clientHeight||667;
+  proj.translate([W/2,H/2]);
+  gBase.selectAll('path').attr('d',pathGen);
+  updateZonePos();
+  gShips.selectAll('.vessel-g').each(function(d){
+    if(!d)return;
+    const[x,y]=proj([d.lon,d.lat]);
+    d3.select(this).attr('transform',`translate(${x},${y})`);
+  });
+  svg.call(zoom.transform,d3.zoomIdentity);
+}
+window.addEventListener('resize',resetProj);
+
+function zoomToBounds(minLon,minLat,maxLon,maxLat,pad=4){
+  const W=svg.node().clientWidth, H=svg.node().clientHeight;
+  const[x0,y0]=proj([minLon-pad,maxLat+pad]);
+  const[x1,y1]=proj([maxLon+pad,minLat-pad]);
+  if(!isFinite(x0+y0+x1+y1))return;
+  const s=Math.min(.85*W/(x1-x0),.85*H/(y1-y0),18);
+  svg.transition().duration(800)
+    .call(zoom.transform,d3.zoomIdentity.translate(W/2-s*(x0+x1)/2,H/2-s*(y0+y1)/2).scale(s));
+}
+
+function panToShip(lon,lat){
+  const W=svg.node().clientWidth, H=svg.node().clientHeight;
+  const[x,y]=proj([lon,lat]);
+  const t=d3.zoomTransform(svg.node());
+  /* Pan ship to upper-centre so bottom sheet doesn't cover it */
+  const targetY = H * 0.35;
+  svg.transition().duration(420)
+    .call(zoom.transform,
+      d3.zoomIdentity.translate(W/2-t.k*x, targetY-t.k*y).scale(t.k));
+}
+
+/* ── Vessel markers ─────────────────────────────────────────────────────── */
+const SHIP_PATH='M 0,-7 L 4.5,5 L 0,2.5 L -4.5,5 Z';
+const DIAMOND  ='M 0,-6 L 5.5,0 L 0,6 L -5.5,0 Z';
+
+function vColor(speed,inZone){
+  if(inZone)return'#ff4545';
+  return speed<SPEED_STOP?'#f59e0b':'#00c7a8';
+}
+
+function resetStyle(el){
+  const inn=d3.select(el).select('.inner');
+  inn.select('.body').attr('stroke','#0b0f1a').attr('stroke-width',1.2).attr('filter','none');
+  inn.select('.halo').attr('r',MARKER_PX).attr('opacity',.22);
+}
+
+function plotShips(ships){
+  gShips.selectAll('.vessel-g').remove();
+  activeG=null;
+
+  const valid=ships.filter(s=>s.LON&&s.LAT&&!isNaN(+s.LON));
+  allShipData=valid;
+  document.getElementById('count-val').textContent=valid.length;
+
+  valid.forEach(ship=>{
+    const lat=+ship.LAT, lon=+ship.LON;
+    const course=+ship.COURSE||0;
+    const speed=+ship.SPEED||0;
+    const inZone=pointInPolygon(lat,lon);
+    const color=vColor(speed,inZone);
+    const shape=speed>=SPEED_STOP?SHIP_PATH:DIAMOND;
+    const[x,y]=proj([lon,lat]);
+
+    const vg=gShips.append('g')
+      .attr('class','vessel-g')
+      .datum({lon,lat,course,speed,inZone,color,ship})
+      .attr('transform',`translate(${x},${y})`)
+      .attr('cursor','pointer');
+
+    const inner=vg.append('g').attr('class','inner')
+      .attr('transform',`scale(${1/currentK})`);
+
+    /* Hit area inside inner (so it counter-scales) */
+    inner.append('circle').attr('r',14).attr('fill','transparent');
+
+    inner.append('circle').attr('class','halo')
+      .attr('r',MARKER_PX).attr('fill',color).attr('opacity',.22).attr('stroke','none');
+
+    inner.append('path').attr('class','body')
+      .attr('d',shape).attr('fill',color)
+      .attr('stroke','#0b0f1a').attr('stroke-width',1.2).attr('stroke-linejoin','round')
+      .attr('transform',`rotate(${course})`);
+
+    inner.append('circle').attr('r',1.6).attr('fill','#fff').attr('opacity',.75);
+  });
+
+  applyZoomScales(currentK);
+
+  const lons=[...valid.map(s=>+s.LON),...QUAD.map(([,lo])=>lo)];
+  const lats=[...valid.map(s=>+s.LAT),...QUAD.map(([la])=>la)];
+  zoomToBounds(d3.min(lons),d3.min(lats),d3.max(lons),d3.max(lats));
+}
+
+/* ── Tap handler (map-level proximity) ─────────────────────────────────── */
+svg.on('click', function(event){
+  if(searchActive){closeSearch();return;}
+  closeProxSheet();
+
+  const[mx,my]=d3.pointer(event);
+  const t=d3.zoomTransform(svg.node());
+  const mapX=(mx-t.x)/t.k, mapY=(my-t.y)/t.k;
+  const hitR=HIT_PX/t.k;
+
+  const hits=[];
+  gShips.selectAll('.vessel-g').each(function(d){
+    if(!d)return;
+    const[vx,vy]=proj([d.lon,d.lat]);
+    const dx=vx-mapX, dy=vy-mapY;
+    if(Math.sqrt(dx*dx+dy*dy)<=hitR) hits.push({el:this,d});
+  });
+
+  if(hits.length===0){
+    if(activeG){resetStyle(activeG);activeG=null;}
+    collapseSheet();
+    return;
+  }
+  if(hits.length===1){activateShip(hits[0].el);return;}
+  showProxSheet(hits);
+});
+
+/* Prevent zoom/pan from also triggering the click on touchstart */
+svg.on('touchstart.prox', closeProxSheet, {passive:true});
+
+function activateShip(el){
+  if(activeG) resetStyle(activeG);
+  activeG=el;
+  const inn=d3.select(el).select('.inner');
+  inn.select('.body').attr('stroke','#fff').attr('stroke-width',2.2).attr('filter','url(#glow)');
+  inn.select('.halo').attr('r',MARKER_PX*1.6).attr('opacity',.38);
+  const d=el.__data__;
+  renderDetail(d.ship);
+  panToShip(d.lon,d.lat);
+  expandSheet('mid');
+}
+
+/* ── Proximity sheet (mobile) ───────────────────────────────────────────── */
+function showProxSheet(hits){
+  const list=document.getElementById('pp-list');
+  document.getElementById('pp-title').textContent=`${hits.length} vessels nearby`;
+  list.innerHTML=hits.map((h,i)=>{
+    const s=h.d.ship, spd=+s.SPEED||0;
+    const col=h.d.inZone?'#ff4545':(spd>=SPEED_STOP?'#00c7a8':'#f59e0b');
+    const st=h.d.inZone?'⚠ Zone':(spd>=SPEED_STOP?spd.toFixed(1)+' kn':'⚓ Stop');
+    return`<div class="pp-row" data-i="${i}">
+      <div class="pp-cdot" style="background:${col}"></div>
+      <div>
+        <div class="pp-name">${s.SHIPNAME}</div>
+        <div class="pp-meta">IMO ${nv(s.IMO)||'—'} · ${st}</div>
+      </div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.pp-row').forEach((el,i)=>{
+    el.addEventListener('click',e=>{
+      e.stopPropagation();
+      activateShip(hits[i].el);
+      closeProxSheet();
+    });
+  });
+  document.getElementById('prox-sheet').style.display='block';
+}
+function closeProxSheet(){
+  document.getElementById('prox-sheet').style.display='none';
+}
+
+/* ── Bottom sheet drag ──────────────────────────────────────────────────── */
+const sheet=document.getElementById('sheet');
+const shHandle=document.getElementById('sheet-handle');
+let shDragStart=null, shTranslateStart=0;
+
+function shCurrentTranslate(){
+  const m=new DOMMatrix(getComputedStyle(sheet).transform);
+  return m.m42; // translateY
+}
+
+shHandle.addEventListener('touchstart',e=>{
+  sheet.classList.add('dragging');
+  shDragStart=e.touches[0].clientY;
+  shTranslateStart=shCurrentTranslate();
+},{passive:true});
+
+shHandle.addEventListener('touchmove',e=>{
+  if(shDragStart===null)return;
+  const dy=e.touches[0].clientY-shDragStart;
+  const H=window.innerHeight;
+  const newY=Math.max(0,Math.min(H*.85,shTranslateStart+dy));
+  sheet.style.transform=`translateY(${newY}px)`;
+},{passive:true});
+
+shHandle.addEventListener('touchend',e=>{
+  sheet.classList.remove('dragging');
+  sheet.style.transform='';
+  const H=window.innerHeight;
+  const finalY=shCurrentTranslate();
+  const midY=H*(1-parseFloat(getComputedStyle(sheet.parentElement||document.documentElement)
+    .getPropertyValue('--sheet-mid'))/100);
+  if(finalY<midY*0.5) expandSheet('full');
+  else if(finalY<H*.7) expandSheet('mid');
+  else collapseSheet();
+  shDragStart=null;
+},{passive:true});
+
+function expandSheet(level){
+  sheet.classList.remove('mid','full');
+  sheet.classList.add(level);
+  const title=document.getElementById('sheet-title');
+  if(level==='full') title.textContent='Vessel details';
+  else if(level==='mid') title.textContent='Swipe up for more';
+}
+function collapseSheet(){
+  sheet.classList.remove('mid','full');
+  document.getElementById('sheet-title').textContent='Tap a vessel';
+}
+
+/* ── Search ─────────────────────────────────────────────────────────────── */
+let searchTimer=null;
+
+function onSearch(q){
+  clearTimeout(searchTimer);
+  const trimmed=q.trim();
+  document.getElementById('search-clear').style.display=trimmed?'flex':'none';
+  searchTimer=setTimeout(()=>runSearch(trimmed),140);
+}
+
+function runSearch(q){
+  const dd=document.getElementById('search-dropdown');
+  if(!q){closeSearch();return;}
+  searchActive=true;
+  const lo=q.toLowerCase();
+  const hits=allShipData.filter(s=>
+    (s.SHIPNAME||'').toLowerCase().includes(lo)||
+    (s.IMO||'').toLowerCase().includes(lo)||
+    (s.MMSI||'').toLowerCase().includes(lo)
+  ).slice(0,30);
+
+  /* Dim non-matching */
+  gShips.selectAll('.vessel-g').each(function(d){
+    const s=d.ship;
+    const m=(s.SHIPNAME||'').toLowerCase().includes(lo)||
+             (s.IMO||'').toLowerCase().includes(lo)||
+             (s.MMSI||'').toLowerCase().includes(lo);
+    d3.select(this).style('opacity',m?1:0.08);
+  });
+
+  if(!hits.length){
+    dd.innerHTML='<div class="sd-item"><div><div class="sd-name" style="color:var(--muted)">No vessels matched</div></div></div>';
+    dd.style.display='block';return;
+  }
+  dd.innerHTML=hits.map((s,i)=>{
+    const spd=+s.SPEED||0;
+    const inZ=pointInPolygon(+s.LAT,+s.LON);
+    const dot=inZ?'🔴':spd>=SPEED_STOP?'🟢':'🟡';
+    return`<div class="sd-item" data-i="${i}">
+      <div class="sd-dot" style="background:${inZ?'#ff4545':spd>=SPEED_STOP?'#00c7a8':'#f59e0b'}"></div>
+      <div>
+        <div class="sd-name">${dot} ${s.SHIPNAME}</div>
+        <div class="sd-meta">IMO ${nv(s.IMO)||'—'} · ${spd.toFixed(1)} kn</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  dd.querySelectorAll('.sd-item').forEach((el,i)=>{
+    el.addEventListener('click',()=>{
+      const ship=hits[i];
+      const found=findEl(ship);
+      if(found)activateShip(found);
+      closeSearch();
+      document.getElementById('search-input').value=ship.SHIPNAME;
+    });
+  });
+  dd.style.display='block';
+}
+
+function findEl(ship){
+  let f=null;
+  gShips.selectAll('.vessel-g').each(function(d){if(d&&d.ship===ship)f=this;});
+  return f;
+}
+
+function clearSearch(){
+  document.getElementById('search-input').value='';
+  document.getElementById('search-clear').style.display='none';
+  closeSearch();
+}
+function closeSearch(){
+  searchActive=false;
+  document.getElementById('search-dropdown').style.display='none';
+  gShips.selectAll('.vessel-g').style('opacity',1);
+}
+function searchKey(e){
+  if(e.key==='Escape')clearSearch();
+  if(e.key==='Enter'){
+    const q=e.target.value.toLowerCase();
+    const m=allShipData.filter(s=>(s.SHIPNAME||'').toLowerCase().includes(q));
+    if(m.length){const f=findEl(m[0]);if(f)activateShip(f);closeSearch();}
+  }
+}
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+function pointInPolygon(lat,lng){
+  let inside=false;
+  for(let i=0,j=QUAD.length-1;i<QUAD.length;j=i++){
+    const[yi,xi]=QUAD[i],[yj,xj]=QUAD[j];
+    if(((yi>lat)!=(yj>lat))&&(lng<(xj-xi)*(lat-yi)/(yj-yi)+xi))inside=!inside;
+  }
+  return inside;
+}
+function fmtTime(unixSec,tzOff){
+  if(!unixSec)return null;
+  return new Date(unixSec*1000-tzOff*3600000).toLocaleString(undefined,{
+    year:'numeric',month:'short',day:'2-digit',
+    hour:'2-digit',minute:'2-digit',timeZoneName:'short'
+  });
+}
+function nv(x){return(x===null||x===undefined||x===''||x==='null')?null:x;}
+
+/* ── Render detail in bottom sheet ──────────────────────────────────────── */
+function renderDetail(ship){
+  const tz=+ship.TIMEZONE||0;
+  const tzSign=tz>=0?'+':'';
+  const localTz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const inZone=pointInPolygon(+ship.LAT,+ship.LON);
+  const lastPos=fmtTime(ship.LAST_POS,tz);
+  const etaTz=ship.ETA_OFFSET!=null?+ship.ETA_OFFSET:tz;
+  const etaStr=fmtTime(ship.ETA,etaTz);
+  const spd=+ship.SPEED||0;
+
+  document.getElementById('ship-detail').innerHTML=`
+  <div class="hero">
+    <div class="type-badge">⛽ ${nv(ship.TYPE_SUMMARY)||'Tanker'}</div>
+    <div class="hero-name">${ship.SHIPNAME}</div>
+    <div class="hero-sub">🇮🇳 ${nv(ship.COUNTRY)||'India'} · ${nv(ship.CODE2)||'IN'}</div>
+    ${inZone?'<div class="zone-tag">⚠ Inside danger zone</div>':''}
+  </div>
+  <div class="last-pos-row"><div class="pulse-dot"></div>Last pos: ${lastPos||'—'}</div>
+  <div class="tz-note">Ship UTC${tzSign}${tz} → <strong>${localTz}</strong></div>
+  <div class="stats">
+    <div class="stat"><div class="stat-lbl">Speed</div><div class="stat-val acc">${spd.toFixed(1)} kn</div></div>
+    <div class="stat"><div class="stat-lbl">Course</div><div class="stat-val acc">${nv(ship.COURSE)?parseFloat(ship.COURSE).toFixed(0)+'°':'—'}</div></div>
+    <div class="stat"><div class="stat-lbl">Status</div><div class="stat-val" style="color:${spd>=SPEED_STOP?'#00c7a8':'#f59e0b'}">${spd>=SPEED_STOP?'▶ Moving':'⚓ Stopped'}</div></div>
+    <div class="stat"><div class="stat-lbl">Zone</div><div class="stat-val" style="color:${inZone?'#ff4545':'#64748b'}">${inZone?'⚠ Yes':'✓ No'}</div></div>
+    <div class="stat full"><div class="stat-lbl">Destination</div><div class="stat-val">${nv(ship.DESTINATION)||'<span style="color:var(--muted);font-size:11px;font-style:italic">Unknown</span>'}</div></div>
+    <div class="stat full"><div class="stat-lbl">ETA (local)</div><div class="stat-val ${!etaStr?'acc':''}" style="${!etaStr?'color:var(--muted);font-style:italic;font-size:11px':''}">${etaStr||'Not available'}</div></div>
+    <div class="stat full"><div class="stat-lbl">Next Port</div><div class="stat-val">${nv(ship.NEXT_PORT_NAME)?`${ship.NEXT_PORT_NAME}${nv(ship.NEXT_PORT_COUNTRY)?', '+ship.NEXT_PORT_COUNTRY:''}`:'<span style="color:var(--muted);font-size:11px;font-style:italic">Not specified</span>'}</div></div>
+    <div class="stat full"><div class="stat-lbl">Current Port</div><div class="stat-val">${nv(ship.CURRENT_PORT)?`${ship.CURRENT_PORT}${nv(ship.CURRENT_PORT_COUNTRY)?', '+ship.CURRENT_PORT_COUNTRY:''}`:'<span style="color:var(--muted);font-size:11px;font-style:italic">Underway</span>'}</div></div>
+  </div>
+  <div class="coords">LAT &nbsp;${(+ship.LAT).toFixed(6)}°<br>LON &nbsp;${(+ship.LON).toFixed(6)}°</div>
+  <div class="sec-head">Identifiers</div>
+  ${[['Ship ID',ship.SHIP_ID],['IMO',ship.IMO],['MMSI',ship.MMSI],['Callsign',ship.CALLSIGN]]
+    .map(([k,v])=>`<div class="idr"><span class="k">${k}</span><span class="v">${nv(v)||'—'}</span></div>`).join('')}
+  <div class="sec-head">Additional</div>
+  ${[
+    ['Photos',nv(ship.COUNT_PHOTOS)?ship.COUNT_PHOTOS+' on record':null],
+    ['Dist. to go',nv(ship.DISTANCE_TO_GO)&&ship.DISTANCE_TO_GO!=='0'?ship.DISTANCE_TO_GO+' nm':null],
+    ['Port ID',nv(ship.PORT_ID)],
+  ].map(([k,v])=>`<div class="idr"><span class="k">${k}</span><span class="v" style="${!v?'color:var(--muted);font-style:italic;font-size:10px':''}">${v||'N/A'}</span></div>`).join('')}
+  `;
+
+  document.getElementById('sheet-empty').style.display='none';
+  document.getElementById('ship-detail').style.display='block';
+}
+
+/* ── Load ───────────────────────────────────────────────────────────────── */
+function parseAndLoad(text,filename=''){
+  try{
+    let ships;
+    const isCsv=filename.toLowerCase().endsWith('.csv')||(text.trim()[0]!=='{'&&text.trim()[0]!=='[');
+    if(isCsv){ships=d3.csvParse(text);}
+    else{const j=JSON.parse(text);ships=Array.isArray(j)?j:(j.data||[]);}
+    if(!ships||!ships.length)throw new Error('No records found.');
+    plotShips(ships);
+    document.getElementById('loader').style.display='none';
+  }catch(err){
+    document.getElementById('spinner').style.display='none';
+    document.getElementById('loader-msg').style.display='none';
+    const el=document.getElementById('loader-error');
+    el.textContent=`Could not load file.\n${err.message}\n\nSelect the file manually:`;
+    el.style.display='block';
+    document.getElementById('btn-pick').style.display='inline-block';
+  }
+}
+
+function fallbackLoad(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>parseAndLoad(ev.target.result,file.name);
+  r.readAsText(file);
+}
+
+/* ── Auto-load ──────────────────────────────────────────────────────────── */
+(function autoLoad(){
+  if(window.location.protocol==='file:'){
+    document.getElementById('spinner').style.display='none';
+    document.getElementById('loader-msg').textContent='Select tankers_india.json:';
+    document.getElementById('btn-pick').style.display='inline-block';
+    setTimeout(()=>document.getElementById('file-input').click(),200);
+    return;
+  }
+  fetch('./tankers_india.json',{cache:'no-cache'})
+    .then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.text();})
+    .then(t=>parseAndLoad(t,'tankers_india.json'))
+    .catch(err=>{
+      document.getElementById('spinner').style.display='none';
+      document.getElementById('loader-msg').style.display='none';
+      const el=document.getElementById('loader-error');
+      el.textContent=`Could not load tankers_india.json (${err.message}).\nSelect it manually:`;
+      el.style.display='block';
+      document.getElementById('btn-pick').style.display='inline-block';
+    });
+})();
+</script>
+</body>
+</html>

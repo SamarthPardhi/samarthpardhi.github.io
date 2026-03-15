@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Vessel Tracker 🇮🇳</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* Mobile redirect — runs before any render */
+:root{
+  --bg:#0b0f1a;--surface:#111827;--surf2:#1a2235;--border:#1f2d45;
+  --accent:#00c7a8;--accent2:#0076ff;--danger:#ff4545;--warn:#f59e0b;
+  --text:#e2e8f0;--muted:#64748b;--label:#94a3b8;
+  --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans)}
+#app{display:flex;height:100vh}
+
+/* ── Map ────────────────────────────────────────────────────────────────── */
+#map-wrap{flex:1;min-width:0;position:relative;overflow:hidden;background:#071221}
+#map-svg{width:100%;height:100%;display:block;cursor:grab}
+#map-svg:active{cursor:grabbing}
+
+/* ── Search bar (top-center) ─────────────────────────────────────────────── */
+#search-wrap{
+  position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  z-index:20;display:flex;align-items:stretch;
+  width:min(400px,55%);
+  box-shadow:0 2px 16px rgba(0,0,0,.5);
+}
+#search-input{
+  flex:1;height:34px;padding:0 14px;
+  background:rgba(11,15,26,.95);border:1px solid var(--border);
+  border-right:none;border-radius:6px 0 0 6px;
+  color:var(--text);font-family:var(--mono);font-size:12px;
+  outline:none;transition:border-color .15s;
+}
+#search-input:focus{border-color:var(--accent)}
+#search-input::placeholder{color:var(--muted)}
+#search-clear{
+  height:34px;width:32px;display:none;align-items:center;justify-content:center;
+  background:rgba(11,15,26,.95);border:1px solid var(--border);border-right:none;
+  color:var(--muted);font-size:13px;cursor:pointer;transition:color .15s;
+}
+#search-clear:hover{color:var(--text)}
+#search-results-btn{
+  height:34px;padding:0 12px;
+  background:rgba(0,199,168,.12);border:1px solid var(--accent);
+  border-radius:0 6px 6px 0;color:var(--accent);
+  font-family:var(--mono);font-size:11px;white-space:nowrap;
+  cursor:default;display:none;
+}
+
+/* Search dropdown list */
+#search-dropdown{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:rgba(11,15,26,.97);border:1px solid var(--border);
+  border-radius:6px;max-height:220px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+  display:none;z-index:30;
+}
+#search-dropdown::-webkit-scrollbar{width:4px}
+#search-dropdown::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.sd-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 14px;cursor:pointer;border-bottom:1px solid rgba(31,45,69,.4);
+  transition:background .1s;
+}
+.sd-item:last-child{border-bottom:none}
+.sd-item:hover{background:var(--surf2)}
+.sd-item .sdi-name{font-size:12px;font-weight:600;color:var(--text)}
+.sd-item .sdi-meta{font-size:10px;color:var(--muted);font-family:var(--mono);text-align:right}
+
+/* ── HUD ─────────────────────────────────────────────────────────────────── */
+#ship-count{
+  position:absolute;top:14px;left:14px;z-index:10;
+  background:rgba(11,15,26,.9);border:1px solid var(--border);
+  color:var(--muted);font-family:var(--mono);font-size:11px;
+  padding:5px 12px;border-radius:5px;pointer-events:none;
+}
+#ship-count span{color:var(--accent);font-weight:600}
+#zoom-hint{
+  position:absolute;bottom:12px;left:14px;z-index:10;
+  font-size:10px;color:var(--muted);font-family:var(--mono);
+  background:rgba(11,15,26,.75);padding:4px 10px;border-radius:4px;pointer-events:none;
+}
+#map-legend{
+  position:absolute;bottom:12px;right:14px;z-index:10;
+  background:rgba(11,15,26,.9);border:1px solid var(--border);
+  border-radius:5px;padding:8px 12px;font-family:var(--mono);font-size:10px;
+  color:var(--muted);
+}
+.leg-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.leg-row:last-child{margin-bottom:0}
+
+/* ── Loading screen ──────────────────────────────────────────────────────── */
+#loader{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;z-index:9999;
+}
+#loader h2{font-size:22px;font-weight:800;color:var(--accent);letter-spacing:-.02em}
+#loader p{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.spinner{
+  width:36px;height:36px;border:3px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loader-error{
+  color:#ff6b6b;font-size:12px;font-family:var(--mono);
+  display:none;max-width:380px;text-align:center;line-height:1.6;
+}
+/* Manual fallback */
+.btn-sm{
+  padding:8px 20px;background:transparent;
+  border:1.5px solid var(--accent);color:var(--accent);
+  font-family:var(--sans);font-size:12px;font-weight:600;
+  border-radius:5px;cursor:pointer;transition:background .15s;display:none;
+}
+.btn-sm:hover{background:rgba(0,199,168,.1)}
+#file-input-fallback{display:none}
+
+/* ── Proximity picker popup ──────────────────────────────────────────────── */
+#prox-popup{
+  position:absolute;z-index:50;
+  background:rgba(11,15,26,.97);border:1px solid var(--border);
+  border-radius:7px;min-width:210px;max-width:270px;
+  box-shadow:0 4px 24px rgba(0,0,0,.6);
+  overflow:hidden;display:none;pointer-events:all;
+}
+#prox-popup .pp-header{
+  padding:7px 12px;font-size:9px;font-family:var(--mono);
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+}
+#prox-popup .pp-close{cursor:pointer;color:var(--muted);font-size:14px;transition:color .1s}
+#prox-popup .pp-close:hover{color:var(--text)}
+.pp-item{
+  display:flex;align-items:center;gap:9px;padding:8px 12px;
+  cursor:pointer;border-bottom:1px solid rgba(31,45,69,.4);transition:background .1s;
+}
+.pp-item:last-child{border-bottom:none}
+.pp-item:hover{background:var(--surf2)}
+.pp-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pp-name{font-size:11px;font-weight:600;color:var(--text);line-height:1.3}
+.pp-meta{font-size:9px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+/* flex-shrink:0 locks the sidebar width — zoom/pan on the map cannot collapse it */
+#sidebar{
+  width:30%;min-width:300px;max-width:480px;
+  flex-shrink:0;                       /* ← never shrink */
+  background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#sidebar-header{
+  padding:14px 18px 11px;border-bottom:1px solid var(--border);
+  background:var(--bg);flex-shrink:0;
+}
+#sidebar-header h1{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+#sidebar-header p{font-size:10px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
+#sidebar-body{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#sidebar-body::-webkit-scrollbar{width:4px}
+#sidebar-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Empty state */
+#empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;padding:28px;text-align:center}
+#empty-state .icon{font-size:34px;margin-bottom:4px}
+#empty-state p{font-size:12px;color:var(--muted);line-height:1.7}
+
+/* Ship detail */
+#ship-detail{display:none;padding-bottom:28px}
+.detail-hero{padding:18px 18px 14px;background:linear-gradient(135deg,#0d1d35,#0b1520);border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.detail-hero::after{content:'';position:absolute;top:-28px;right:-28px;width:90px;height:90px;background:#0076ff;opacity:.04;border-radius:50%}
+.ship-badge{display:inline-block;font-size:9px;font-family:var(--mono);font-weight:600;letter-spacing:.1em;padding:3px 8px;border-radius:3px;background:rgba(0,199,168,.12);color:var(--accent);border:1px solid rgba(0,199,168,.25);margin-bottom:8px}
+.ship-name{font-size:17px;font-weight:800;color:#fff;line-height:1.2;word-break:break-word}
+.ship-sub{font-size:11px;color:var(--muted);margin-top:5px;font-family:var(--mono)}
+.in-zone-tag{display:inline-block;font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:3px;background:rgba(255,69,69,.15);color:var(--danger);border:1px solid rgba(255,69,69,.3);margin-top:6px}
+.live-row{display:flex;align-items:center;gap:8px;padding:9px 18px;background:var(--surf2);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--label)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+.tz-banner{margin:8px 18px 4px;padding:8px 12px;background:rgba(0,118,255,.08);border:1px solid rgba(0,118,255,.2);border-radius:5px;font-size:10px;font-family:var(--mono);color:#7eb8ff;line-height:1.7}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);margin-bottom:1px}
+.stat-cell{background:var(--surface);padding:11px 14px}
+.stat-cell.full{grid-column:1/-1}
+.stat-label{font-size:9px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.stat-value{font-size:13px;font-weight:600;color:var(--text);word-break:break-word;line-height:1.3}
+.stat-value.accent{color:var(--accent);font-family:var(--mono)}
+.section-head{padding:11px 18px 5px;font-size:9px;font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);border-top:1px solid var(--border);margin-top:5px}
+.id-row{display:flex;justify-content:space-between;padding:7px 18px;font-family:var(--mono);font-size:11px;border-bottom:1px solid rgba(31,45,69,.5)}
+.id-row .k{color:var(--muted);white-space:nowrap}
+.id-row .v{color:var(--text);font-weight:600;text-align:right;max-width:62%;word-break:break-all}
+.coords-block{margin:8px 18px;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:5px;font-family:var(--mono);font-size:11px;color:var(--accent);line-height:1.85}
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loader">
+  <h2>⬡ VESSEL TRACKER 🇮🇳</h2>
+  <div class="spinner" id="spinner"></div>
+  <p id="loader-msg">Loading tankers_india.json…</p>
+  <p id="loader-error"></p>
+  <button class="btn-sm" id="btn-manual" onclick="document.getElementById('file-input-fallback').click()">Browse for file</button>
+  <input type="file" id="file-input-fallback" accept=".json,.csv" onchange="fallbackLoad(event)"/>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div id="map-wrap">
+    <svg id="map-svg"></svg>
+
+    <!-- HUD: vessel count -->
+    <div id="ship-count">Vessels: <span id="count-val">—</span></div>
+
+    <!-- Search bar -->
+    <div id="search-wrap">
+      <input id="search-input" type="text"
+        placeholder="Search ship name, IMO or MMSI…"
+        oninput="onSearch(this.value)"
+        onkeydown="searchKey(event)"
+        autocomplete="off" spellcheck="false"/>
+      <div id="search-clear" onclick="clearSearch()">✕</div>
+      <div id="search-results-btn"></div>
+      <div id="search-dropdown"></div>
+    </div>
+
+    <div id="zoom-hint">Scroll to zoom · Drag to pan</div>
+
+    <!-- Proximity picker: appears when click hits multiple vessels -->
+    <div id="prox-popup">
+      <div class="pp-header">
+        <span id="pp-title">Nearby vessels</span>
+        <span class="pp-close" onclick="closeProxPopup()">✕</span>
+      </div>
+      <div id="pp-list"></div>
+    </div>
+
+    <!-- Legend -->
+    <div id="map-legend">
+      <div class="leg-row">
+        <svg width="12" height="12" viewBox="-6 -7 12 14"><path d="M0,-6 L4,5 L0,2.5 L-4,5 Z" fill="#00c7a8" stroke="#0b0f1a" stroke-width="1"/></svg>
+        Moving tanker
+      </div>
+      <div class="leg-row">
+        <svg width="12" height="12" viewBox="-6 -6 12 12"><path d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#f59e0b" stroke="#0b0f1a" stroke-width="1"/></svg>
+        Stopped / anchored
+      </div>
+      <div class="leg-row">
+        <svg width="12" height="12" viewBox="-6 -7 12 14"><path d="M0,-6 L4,5 L0,2.5 L-4,5 Z" fill="#ff4545" stroke="#0b0f1a" stroke-width="1"/></svg>
+        Inside danger zone
+      </div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>⬡ VESSEL TRACKER 🇮🇳</h1>
+      <p id="sidebar-sub">Click a vessel on the map to inspect</p>
+    </div>
+    <div id="sidebar-body">
+      <div id="empty-state">
+        <div class="icon">🛢️</div>
+        <p>Select any tanker on the map to view its details.<br>Use the search bar to quickly find a vessel.</p>
+      </div>
+      <div id="ship-detail"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Mobile redirect — fires immediately before any heavy assets load */
+(function(){
+  const ua = navigator.userAgent || '';
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(ua)
+    || (window.innerWidth <= 768 && 'ontouchstart' in window);
+  if (isMobile) {
+    window.location.replace('ship_tracker_mobile.html' + window.location.search);
+  }
+})();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+'use strict';
+
+/* ── Danger-zone corners [lat, lon] ─────────────────────────────────────── */
+const QUAD = [
+  [18.9434720, 43.1682014],
+  [26.1051959, 64.7010612],
+  [32.5929613, 49.6103096],
+  [29.6698575, 44.6657753],
+];
+
+/* ── Tunables ───────────────────────────────────────────────────────────── */
+const SPEED_STOP    = 0.5;   // knots – below this = "stopped"
+const BASE_K        = 1;     // reference zoom scale
+// Ship marker visual size in SVG-user-units (constant regardless of zoom)
+const MARKER_PX     = 9;
+// Zone stroke in SVG-user-units at k=1
+const ZONE_STROKE_BASE = 1.8;
+const ZONE_VTEX_R_BASE = 4;
+
+/* ── State ──────────────────────────────────────────────────────────────── */
+let currentK   = 1;
+let activeG    = null;
+let allShipData = [];  // raw objects from JSON
+let rafPending  = false;
+
+/* ── SVG setup ──────────────────────────────────────────────────────────── */
+const svg     = d3.select('#map-svg');
+const gBase   = svg.append('g').attr('id','g-base');
+const gZone   = svg.append('g').attr('id','g-zone');
+const gShips  = svg.append('g').attr('id','g-ships');
+
+/* Glow filter (used for selected vessel) */
+svg.append('defs').html(`
+  <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+`);
+
+/* Ocean background */
+svg.insert('rect','g').attr('width','100%').attr('height','100%').attr('fill','#071221');
+
+const proj    = d3.geoNaturalEarth1().scale(160).translate([0, 0]);
+const pathGen = d3.geoPath().projection(proj);
+
+/* Graticule */
+gBase.append('path')
+  .datum(d3.geoGraticule()())
+  .attr('fill','none').attr('stroke','#1a2e4a').attr('stroke-width',.4)
+  .attr('d', pathGen);
+
+/* World basemap */
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+  .then(r => r.json())
+  .then(world => {
+    gBase.append('g').selectAll('path')
+      .data(topojson.feature(world, world.objects.countries).features)
+      .enter().append('path')
+        .attr('d', pathGen)
+        .attr('fill','#1c2e44').attr('stroke','#2d4a6a').attr('stroke-width',.4);
+    gBase.append('path')
+      .datum(topojson.mesh(world, world.objects.countries, (a,b) => a!==b))
+      .attr('fill','none').attr('stroke','#2d4a6a').attr('stroke-width',.3)
+      .attr('d', pathGen);
+    initZone();
+    resetProj();
+  })
+  .catch(() => { initZone(); resetProj(); });
+
+/* ── Danger zone ────────────────────────────────────────────────────────── */
+const zonePoly  = gZone.append('polygon').attr('class','danger-zone')
+  .attr('fill','rgba(255,69,69,.09)').attr('stroke','#ff4545')
+  .attr('stroke-dasharray','6,3');
+
+const zoneVtx = gZone.selectAll('.zv')
+  .data(QUAD).enter().append('circle').attr('class','zv')
+  .attr('fill','#ff4545').attr('stroke','rgba(255,255,255,.65)');
+
+function initZone() { updateZonePositions(); updateZoneScale(currentK); }
+
+function updateZonePositions() {
+  zonePoly.attr('points', QUAD.map(([lat,lon]) => proj([lon,lat]).join(',')).join(' '));
+  zoneVtx.each(function([lat,lon]) {
+    const [x,y] = proj([lon, lat]);
+    d3.select(this).attr('cx', x).attr('cy', y);
+  });
+}
+
+/* Zone stroke & vertex radius shrink with zoom (same maths as ship markers) */
+function updateZoneScale(k) {
+  zonePoly.attr('stroke-width', ZONE_STROKE_BASE / k);
+  zoneVtx.attr('r', ZONE_VTEX_R_BASE / k).attr('stroke-width', 1 / k);
+}
+
+/* ── Projection reset (on load + resize) ────────────────────────────────── */
+function resetProj() {
+  const W = svg.node().clientWidth  || 900;
+  const H = svg.node().clientHeight || 600;
+  proj.translate([W/2, H/2]);
+  gBase.selectAll('path').attr('d', pathGen);
+  updateZonePositions();
+  updateShipPositions();
+  svg.call(zoom.transform, d3.zoomIdentity);
+}
+window.addEventListener('resize', resetProj);
+
+/* ── Zoom ───────────────────────────────────────────────────────────────── */
+const zoom = d3.zoom().scaleExtent([.4, 28])
+  .on('zoom', e => {
+    const t = e.transform;
+    gBase.attr('transform', t);
+    gZone.attr('transform', t);
+    gShips.attr('transform', t);
+    currentK = t.k;
+    /* Batch scale updates in rAF for zero jank */
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(() => {
+        applyZoomScales(currentK);
+        rafPending = false;
+      });
+    }
+  });
+svg.call(zoom);
+
+/*
+ * applyZoomScales:
+ *  Ships are drawn at fixed SVG-units (MARKER_PX). We apply a counter-scale
+ *  transform on the inner <g> so that as zoom increases the marker stays the
+ *  same screen size. Same inverse-k logic for the danger-zone stroke.
+ */
+function applyZoomScales(k) {
+  gShips.selectAll('.vessel-g').each(function() {
+    d3.select(this).select('.inner').attr('transform', `scale(${1/k})`);
+  });
+  updateZoneScale(k);
+}
+
+function updateShipPositions() {
+  gShips.selectAll('.vessel-g').each(function(d) {
+    if (!d) return;
+    const [x,y] = proj([d.lon, d.lat]);
+    d3.select(this).attr('transform', `translate(${x},${y})`);
+  });
+}
+
+function zoomToBounds(minLon, minLat, maxLon, maxLat, pad=5) {
+  const W = svg.node().clientWidth, H = svg.node().clientHeight;
+  const [x0,y0] = proj([minLon-pad, maxLat+pad]);
+  const [x1,y1] = proj([maxLon+pad, minLat-pad]);
+  if (!isFinite(x0+y0+x1+y1)) return;
+  const s = Math.min(.9*W/(x1-x0), .9*H/(y1-y0), 20);
+  svg.transition().duration(850)
+    .call(zoom.transform,
+      d3.zoomIdentity.translate(W/2 - s*(x0+x1)/2, H/2 - s*(y0+y1)/2).scale(s));
+}
+
+function panToShip(lon, lat) {
+  const W = svg.node().clientWidth, H = svg.node().clientHeight;
+  const [x,y] = proj([lon, lat]);
+  const t = d3.zoomTransform(svg.node());
+  svg.transition().duration(460)
+    .call(zoom.transform,
+      d3.zoomIdentity.translate(W/2 - t.k*x, H/2 - t.k*y).scale(t.k));
+}
+
+/* ── Vessel colour ──────────────────────────────────────────────────────── */
+function vesselColor(speed, inZone) {
+  if (inZone) return '#ff4545';
+  return speed < SPEED_STOP ? '#f59e0b' : '#00c7a8';
+}
+
+/* Ship silhouette path (pointing north = up) */
+const SHIP_PATH = 'M 0,-7 L 4.5,5 L 0,2.5 L -4.5,5 Z';
+/* Diamond for stopped */
+const DIAMOND   = 'M 0,-6 L 5.5,0 L 0,6 L -5.5,0 Z';
+
+/* ── Plot ships ─────────────────────────────────────────────────────────── */
+function plotShips(ships) {
+  gShips.selectAll('.vessel-g').remove();
+  activeG = null;
+
+  const valid = ships.filter(s => s.LON && s.LAT && !isNaN(+s.LON));
+  allShipData = valid;
+  document.getElementById('count-val').textContent = valid.length;
+
+  valid.forEach(ship => {
+    const lat    = +ship.LAT, lon = +ship.LON;
+    const course = +ship.COURSE || 0;
+    const speed  = +ship.SPEED  || 0;
+    const inZone = pointInPolygon(lat, lon);
+    const color  = vesselColor(speed, inZone);
+    const shape  = speed >= SPEED_STOP ? SHIP_PATH : DIAMOND;
+    const [x, y] = proj([lon, lat]);
+
+    const vg = gShips.append('g')
+      .attr('class', 'vessel-g')
+      .datum({ lon, lat, course, speed, inZone, color, ship })
+      .attr('transform', `translate(${x},${y})`)
+      .attr('cursor', 'pointer');
+
+    /* Inner group: counter-scaled so everything inside stays constant screen size.
+       The hit circle lives HERE so hover/click areas also stay constant. */
+    const inner = vg.append('g').attr('class','inner')
+      .attr('transform', `scale(${1/currentK})`);
+
+    /* Hit target — inside .inner so it's always ~13px radius in screen space */
+    inner.append('circle').attr('class','hit')
+      .attr('r', 13).attr('fill', 'transparent').attr('stroke','none');
+
+    /* Halo glow ring */
+    inner.append('circle').attr('class','halo')
+      .attr('r', MARKER_PX).attr('fill', color).attr('opacity', .22).attr('stroke','none');
+
+    /* Main shape */
+    inner.append('path').attr('class','body')
+      .attr('d', shape)
+      .attr('fill', color)
+      .attr('stroke','#0b0f1a').attr('stroke-width',1.2).attr('stroke-linejoin','round')
+      .attr('transform', `rotate(${course})`);
+
+    /* Centre dot */
+    inner.append('circle').attr('r', 1.4).attr('fill','#fff').attr('opacity',.75);
+
+    /* Hover on .vessel-g (the outer wrapper).
+       Because hit circle is inside .inner (counter-scaled), the hover area is
+       always ~13px in screen space regardless of zoom — no more ghost hover. */
+    vg.on('mouseenter', function() {
+        if (this === activeG) return;
+        const inn = d3.select(this).select('.inner');
+        inn.select('.body').attr('stroke','#fff').attr('stroke-width', 2);
+        inn.select('.halo').attr('opacity', .45);
+      })
+      .on('mouseleave', function() {
+        if (this === activeG) return;
+        const inn = d3.select(this).select('.inner');
+        inn.select('.body').attr('stroke','#0b0f1a').attr('stroke-width',1.2);
+        inn.select('.halo').attr('opacity',.22);
+      });
+    /* Click handled at map level (proximity picker) */
+  });
+
+  applyZoomScales(currentK);
+
+  /* Fit view */
+  const lons = [...valid.map(s=>+s.LON), ...QUAD.map(([,ln])=>ln)];
+  const lats = [...valid.map(s=>+s.LAT), ...QUAD.map(([la])=>la)];
+  zoomToBounds(d3.min(lons), d3.min(lats), d3.max(lons), d3.max(lats));
+}
+
+/* Reset a vessel's visual to its default (non-active, non-hover) state */
+function resetVesselStyle(el) {
+  const inn = d3.select(el).select('.inner');
+  inn.select('.body')
+    .attr('stroke','#0b0f1a').attr('stroke-width',1.2).attr('filter','none');
+  inn.select('.halo').attr('r', MARKER_PX).attr('opacity',.22);
+}
+
+function activateShip(el) {
+  /* Fully reset previous active vessel */
+  if (activeG) resetVesselStyle(activeG);
+
+  activeG = el;
+  const inn = d3.select(el).select('.inner');
+  inn.select('.body')
+    .attr('stroke','#fff').attr('stroke-width',2.2)
+    .attr('filter','url(#glow)');
+  inn.select('.halo').attr('r', MARKER_PX * 1.6).attr('opacity',.38);
+
+  const d = el.__data__;
+  renderDetail(d.ship);
+  panToShip(d.lon, d.lat);
+}
+
+/* ── Map-level click: proximity picker ──────────────────────────────────── */
+/*
+ * Strategy: on every map click, find ALL vessels within HIT_PX screen pixels.
+ * - 0 hits  → close popup, deselect.
+ * - 1 hit   → select directly.
+ * - 2+ hits → show a small popup listing all candidates.
+ * This sidesteps SVG z-order and lets the user reach any vessel in a cluster.
+ */
+const HIT_PX = 14; // screen-pixel radius for proximity search
+
+svg.on('click', function(event) {
+  if (searchActive) { closeSearch(); return; }
+  closeProxPopup();
+
+  const [mx, my] = d3.pointer(event); // mouse in SVG coords (pre-zoom)
+  const t = d3.zoomTransform(svg.node());
+
+  // Convert SVG mouse pos → map space (accounting for current pan+zoom)
+  const mapX = (mx - t.x) / t.k;
+  const mapY = (my - t.y) / t.k;
+
+  // HIT_PX in screen pixels → map units (divide by k)
+  const hitR = HIT_PX / t.k;
+
+  const hits = [];
+  gShips.selectAll('.vessel-g').each(function(d) {
+    if (!d) return;
+    const [vx, vy] = proj([d.lon, d.lat]);
+    const dx = vx - mapX, dy = vy - mapY;
+    if (Math.sqrt(dx*dx + dy*dy) <= hitR) hits.push({ el: this, d });
+  });
+
+  if (hits.length === 0) {
+    // Clicked empty ocean — deselect
+    if (activeG) { resetVesselStyle(activeG); activeG = null; }
+    return;
+  }
+
+  if (hits.length === 1) {
+    activateShip(hits[0].el);
+    return;
+  }
+
+  // Multiple candidates — show picker at click position
+  showProxPopup(hits, mx, my);
+});
+
+function showProxPopup(hits, screenX, screenY) {
+  const popup  = document.getElementById('prox-popup');
+  const list   = document.getElementById('pp-list');
+  const mapWrap = document.getElementById('map-wrap');
+  const mw = mapWrap.clientWidth, mh = mapWrap.clientHeight;
+
+  document.getElementById('pp-title').textContent =
+    `${hits.length} vessels nearby`;
+
+  list.innerHTML = hits.map((h, i) => {
+    const s   = h.d.ship;
+    const spd = +s.SPEED || 0;
+    const col = h.d.inZone ? '#ff4545' : (spd >= SPEED_STOP ? '#00c7a8' : '#f59e0b');
+    const status = h.d.inZone ? '⚠ Zone' : (spd >= SPEED_STOP ? `${spd.toFixed(1)} kn` : '⚓ Stop');
+    return `<div class="pp-item" data-idx="${i}">
+      <div class="pp-dot" style="background:${col}"></div>
+      <div>
+        <div class="pp-name">${s.SHIPNAME}</div>
+        <div class="pp-meta">IMO ${nv(s.IMO)||'—'} · ${status}${nv(s.DESTINATION)?' · '+s.DESTINATION:''}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.pp-item').forEach((el, i) => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      activateShip(hits[i].el);
+      closeProxPopup();
+    });
+  });
+
+  // Position popup near the click, but keep it inside the viewport
+  popup.style.display = 'block';
+  const pw = popup.offsetWidth  || 240;
+  const ph = popup.offsetHeight || 200;
+  let left = screenX + 12;
+  let top  = screenY + 12;
+  if (left + pw > mw - 10) left = screenX - pw - 12;
+  if (top  + ph > mh - 10) top  = screenY - ph - 12;
+  popup.style.left = Math.max(8, left) + 'px';
+  popup.style.top  = Math.max(8, top)  + 'px';
+}
+
+function closeProxPopup() {
+  document.getElementById('prox-popup').style.display = 'none';
+}
+
+/* Close popup on zoom/pan start */
+svg.on('mousedown.prox', closeProxPopup);
+function pointInPolygon(lat, lng) {
+  let inside = false;
+  for (let i=0, j=QUAD.length-1; i<QUAD.length; j=i++) {
+    const [yi,xi]=QUAD[i], [yj,xj]=QUAD[j];
+    if (((yi>lat)!=(yj>lat)) && (lng<(xj-xi)*(lat-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+
+function fmtTime(unixSec, tzOff) {
+  if (!unixSec) return null;
+  return new Date(unixSec*1000 - tzOff*3600000).toLocaleString(undefined, {
+    year:'numeric', month:'short', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit', timeZoneName:'short'
+  });
+}
+function nv(x){ return (x===null||x===undefined||x===''||x==='null') ? null : x; }
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+function renderDetail(ship) {
+  const tz      = +ship.TIMEZONE || 0;
+  const tzSign  = tz>=0?'+':'';
+  const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const inZone  = pointInPolygon(+ship.LAT, +ship.LON);
+  const lastPos = fmtTime(ship.LAST_POS, tz);
+  const etaTz   = ship.ETA_OFFSET!=null ? +ship.ETA_OFFSET : tz;
+  const etaStr  = fmtTime(ship.ETA, etaTz);
+  const spd     = +ship.SPEED || 0;
+
+  document.getElementById('ship-detail').innerHTML = `
+  <div class="detail-hero">
+    <div class="ship-badge">⛽ ${nv(ship.TYPE_SUMMARY)||'Tanker'}</div>
+    <div class="ship-name">${ship.SHIPNAME}</div>
+    <div class="ship-sub">🇮🇳 ${nv(ship.COUNTRY)||'India'} · ${nv(ship.CODE2)||'IN'}</div>
+    ${inZone ? '<div class="in-zone-tag">⚠ Inside danger zone</div>' : ''}
+  </div>
+  <div class="live-row"><div class="live-dot"></div>Last position: ${lastPos||'—'}</div>
+  <div class="tz-banner">Ship tz: UTC${tzSign}${tz} &nbsp;→&nbsp; shown as <strong>${localTz}</strong></div>
+  <div class="stats-grid">
+    <div class="stat-cell">
+      <div class="stat-label">Speed</div>
+      <div class="stat-value accent">${spd.toFixed(1)} kn</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Course</div>
+      <div class="stat-value accent">${nv(ship.COURSE)?parseFloat(ship.COURSE).toFixed(0)+'°':'—'}</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Status</div>
+      <div class="stat-value" style="color:${spd>=SPEED_STOP?'#00c7a8':'#f59e0b'}">${spd>=SPEED_STOP?'▶ Moving':'⚓ Stopped'}</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Danger Zone</div>
+      <div class="stat-value" style="color:${inZone?'#ff4545':'#64748b'}">${inZone?'⚠ Yes':'✓ No'}</div>
+    </div>
+    <div class="stat-cell full">
+      <div class="stat-label">Destination</div>
+      <div class="stat-value">${nv(ship.DESTINATION)||'<span style="color:var(--muted);font-size:11px;font-style:italic">Unknown</span>'}</div>
+    </div>
+    <div class="stat-cell full">
+      <div class="stat-label">ETA (your local time)</div>
+      <div class="stat-value ${!etaStr?'accent':''}" style="${!etaStr?'color:var(--muted);font-size:11px;font-style:italic':''}">${etaStr||'Not available'}</div>
+    </div>
+    <div class="stat-cell full">
+      <div class="stat-label">Next Port</div>
+      <div class="stat-value">${nv(ship.NEXT_PORT_NAME)
+        ? `${ship.NEXT_PORT_NAME}${nv(ship.NEXT_PORT_COUNTRY)?', '+ship.NEXT_PORT_COUNTRY:''}`
+        : '<span style="color:var(--muted);font-size:11px;font-style:italic">Not specified</span>'}</div>
+    </div>
+    <div class="stat-cell full">
+      <div class="stat-label">Current Port</div>
+      <div class="stat-value">${nv(ship.CURRENT_PORT)
+        ? `${ship.CURRENT_PORT}${nv(ship.CURRENT_PORT_COUNTRY)?', '+ship.CURRENT_PORT_COUNTRY:''}`
+        : '<span style="color:var(--muted);font-size:11px;font-style:italic">Underway</span>'}</div>
+    </div>
+  </div>
+  <div class="coords-block">LAT &nbsp;${(+ship.LAT).toFixed(6)}°<br>LON &nbsp;${(+ship.LON).toFixed(6)}°</div>
+  <div class="section-head">Identifiers</div>
+  ${[['Ship ID',ship.SHIP_ID],['IMO',ship.IMO],['MMSI',ship.MMSI],['Callsign',ship.CALLSIGN]]
+    .map(([k,v])=>`<div class="id-row"><span class="k">${k}</span><span class="v">${nv(v)||'—'}</span></div>`).join('')}
+  <div class="section-head">Additional</div>
+  ${[
+    ['Photos',         nv(ship.COUNT_PHOTOS)?ship.COUNT_PHOTOS+' on record':null],
+    ['Dist. to go',    nv(ship.DISTANCE_TO_GO)&&ship.DISTANCE_TO_GO!=='0'?ship.DISTANCE_TO_GO+' nm':null],
+    ['Port ID',        nv(ship.PORT_ID)],
+    ['Route f/cast',   ship.CTA_ROUTE_FORECAST==='true'?'Available':null],
+  ].map(([k,v])=>`<div class="id-row">
+    <span class="k">${k}</span>
+    <span class="v" style="${!v?'color:var(--muted);font-style:italic;font-size:10px':''}">${v||'N/A'}</span>
+  </div>`).join('')}
+  `;
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('ship-detail').style.display = 'block';
+  document.getElementById('sidebar-sub').textContent   = ship.SHIPNAME;
+  document.getElementById('sidebar-body').scrollTop    = 0;
+}
+
+/* ── Search ─────────────────────────────────────────────────────────────── */
+let searchTimer  = null;
+let searchActive = false;
+
+function onSearch(q) {
+  clearTimeout(searchTimer);
+  const trimmed = q.trim();
+  document.getElementById('search-clear').style.display = trimmed ? 'flex' : 'none';
+  searchTimer = setTimeout(() => runSearch(trimmed), 130);
+}
+
+function runSearch(q) {
+  const dropdown = document.getElementById('search-dropdown');
+  const resBadge = document.getElementById('search-results-btn');
+
+  if (!q) {
+    closeSearch();
+    return;
+  }
+
+  const lower = q.toLowerCase();
+  const hits = allShipData.filter(s =>
+    (s.SHIPNAME||'').toLowerCase().includes(lower) ||
+    (s.IMO||'').toLowerCase().includes(lower) ||
+    (s.MMSI||'').toLowerCase().includes(lower)
+  ).slice(0, 40); // cap at 40 results
+
+  searchActive = true;
+
+  /* Dim non-matching vessels */
+  gShips.selectAll('.vessel-g').each(function(d) {
+    const s = d.ship;
+    const match = (s.SHIPNAME||'').toLowerCase().includes(lower) ||
+                  (s.IMO||'').toLowerCase().includes(lower) ||
+                  (s.MMSI||'').toLowerCase().includes(lower);
+    d3.select(this).style('opacity', match ? 1 : 0.08);
+  });
+
+  /* Show badge */
+  resBadge.textContent = `${hits.length} found`;
+  resBadge.style.display = 'block';
+
+  /* Build dropdown */
+  if (hits.length === 0) {
+    dropdown.innerHTML = '<div class="sd-item"><span class="sdi-name" style="color:var(--muted)">No vessels matched</span></div>';
+    dropdown.style.display = 'block';
+    return;
+  }
+
+  dropdown.innerHTML = hits.map((s,i) => {
+    const spd = +s.SPEED||0;
+    const inZ = pointInPolygon(+s.LAT,+s.LON);
+    const dot = inZ?'🔴':spd>=SPEED_STOP?'🟢':'🟡';
+    return `<div class="sd-item" data-idx="${i}">
+      <span class="sdi-name">${dot} ${s.SHIPNAME}</span>
+      <span class="sdi-meta">IMO ${nv(s.IMO)||'—'}<br>${spd.toFixed(1)} kn · ${nv(s.DESTINATION)||'—'}</span>
+    </div>`;
+  }).join('');
+  dropdown.style.display = 'block';
+
+  /* Click on dropdown item */
+  dropdown.querySelectorAll('.sd-item').forEach((el, i) => {
+    el.addEventListener('click', () => {
+      const ship = hits[i];
+      const el2 = findVesselEl(ship);
+      if (el2) activateShip(el2);
+      closeSearch();
+      document.getElementById('search-input').value = ship.SHIPNAME;
+    });
+  });
+}
+
+function findVesselEl(ship) {
+  let found = null;
+  gShips.selectAll('.vessel-g').each(function(d) {
+    if (d && d.ship === ship) found = this;
+  });
+  return found;
+}
+
+function closeSearch() {
+  searchActive = false;
+  document.getElementById('search-dropdown').style.display = 'none';
+  document.getElementById('search-results-btn').style.display = 'none';
+  gShips.selectAll('.vessel-g').style('opacity', 1);
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear').style.display = 'none';
+  closeSearch();
+}
+
+function searchKey(e) {
+  if (e.key === 'Escape') clearSearch();
+  if (e.key === 'Enter') {
+    /* Jump to first result */
+    const hits = allShipData.filter(s => {
+      const l = e.target.value.toLowerCase();
+      return (s.SHIPNAME||'').toLowerCase().includes(l) ||
+             (s.IMO||'').toLowerCase().includes(l);
+    });
+    if (hits.length) {
+      const el = findVesselEl(hits[0]);
+      if (el) activateShip(el);
+      closeSearch();
+    }
+  }
+}
+
+/* map click is handled by the proximity picker above */
+
+/* ── Parse ──────────────────────────────────────────────────────────────── */
+function parseAndLoad(text, filename='') {
+  try {
+    let ships;
+    const isCsv = filename.toLowerCase().endsWith('.csv') ||
+                  (text.trim()[0]!=='{' && text.trim()[0]!=='[');
+    if (isCsv) {
+      ships = d3.csvParse(text);
+    } else {
+      const json = JSON.parse(text);
+      ships = Array.isArray(json) ? json : (json.data || []);
+    }
+    if (!ships || !ships.length) throw new Error('No records found.');
+    plotShips(ships);
+    document.getElementById('loader').style.display = 'none';
+  } catch(err) {
+    showLoaderError('Parse error: ' + err.message);
+  }
+}
+
+function showLoaderError(msg) {
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('loader-msg').style.display = 'none';
+  const el = document.getElementById('loader-error');
+  el.textContent = msg + '\n\nMake sure tankers_india.json is in the same folder as this HTML file, then reload. Or pick the file manually:';
+  el.style.display = 'block';
+  document.getElementById('btn-manual').style.display = 'inline-block';
+}
+
+function fallbackLoad(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => parseAndLoad(e.target.result, file.name);
+  reader.readAsText(file);
+}
+
+/* ── Auto-load tankers_india.json ───────────────────────────────────────── */
+(function autoLoad() {
+  /* file:// blocks fetch() — detect and go straight to file picker */
+  if (window.location.protocol === 'file:') {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('loader-msg').textContent =
+      'Select tankers_india.json from your folder:';
+    document.getElementById('btn-manual').style.display = 'inline-block';
+    setTimeout(() => document.getElementById('file-input-fallback').click(), 200);
+    return;
+  }
+  fetch('./tankers_india.json', { cache: 'no-cache' })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+    .then(text => parseAndLoad(text, 'tankers_india.json'))
+    .catch(err => showLoaderError(`Could not load tankers_india.json (${err.message}).`));
+})();
+</script>
+</body>
+</html>
