@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Working</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #ffffff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        h1.title {
+            font-size: 6rem;
+            font-weight: 800;
+            color: #000000;
+            z-index: 10;
+            pointer-events: none;
+            margin: 0;
+            letter-spacing: -0.04em;
+        }
+        .bubble {
+            position: absolute;
+            bottom: -150px;
+            border-radius: 50%;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 
+                inset 0 0 20px rgba(255, 255, 255, 0.9),
+                inset 10px 0 40px rgba(255, 255, 255, 0.5),
+                inset -10px 0 40px rgba(255, 255, 255, 0.5),
+                inset 0 -10px 40px rgba(255, 255, 255, 0.5),
+                0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            z-index: 1;
+            /* Apple-like glossy highlight using pseudo-element */
+            overflow: hidden;
+            scale: 1;
+            transform-origin: center center;
+        }
+        /* Glossy reflection */
+        .bubble::after {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 20%;
+            width: 40%;
+            height: 25%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0));
+            border-radius: 50%;
+            transform: rotate(-45deg);
+            pointer-events: none;
+        }
+        .pop {
+            animation: popEffect 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards !important;
+        }
+        @keyframes popEffect {
+            0% {
+                scale: 1;
+                opacity: 1;
+                filter: brightness(1);
+            }
+            50% {
+                scale: 1.15;
+                opacity: 0.8;
+                filter: brightness(1.2);
+            }
+            100% {
+                scale: 1.3;
+                opacity: 0;
+                filter: brightness(1.5);
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">Working</h1>
+    <script>
+        function createBubble() {
+            const bubble = document.createElement('div');
+            bubble.classList.add('bubble');
+            
+            // Random size between 40px and 110px
+            const size = Math.random() * 70 + 40;
+            bubble.style.width = `${size}px`;
+            bubble.style.height = `${size}px`;
+            
+            // Random starting horizontal position
+            bubble.style.left = `${Math.random() * 100}vw`;
+            
+            // Colorful iridescent tint
+            const hue1 = Math.floor(Math.random() * 360);
+            const hue2 = (hue1 + 60) % 360; // Analogous color for smooth gradient
+            bubble.style.background = `radial-gradient(circle at 30% 30%, hsla(${hue1}, 100%, 75%, 0.35), hsla(${hue2}, 100%, 65%, 0.1))`;
+            
+            // Random animation duration between 5s and 10s
+            const duration = Math.random() * 5 + 5;
+            
+            // Wavy animation using Web Animations API and modern translate property
+            const startX = 0;
+            const midX = (Math.random() - 0.5) * 120; // -60px to 60px
+            const endX = (Math.random() - 0.5) * 120; // -60px to 60px
+            
+            const animation = bubble.animate([
+                { translate: `${startX}px 0` },
+                { translate: `${midX}px -60vh` },
+                { translate: `${endX}px -120vh` }
+            ], {
+                duration: duration * 1000,
+                easing: 'linear',
+                fill: 'forwards'
+            });
+            document.body.appendChild(bubble);
+            
+            // Random pop logic (pop between 40% and 90% of the journey)
+            const popTime = (Math.random() * 0.5 + 0.4) * duration * 1000;
+            
+            let isPopped = false;
+            const popBubble = () => {
+                if (isPopped) return;
+                isPopped = true;
+                
+                // Stop the moving animation by pausing it
+                animation.pause();
+                
+                // Add pop effect
+                bubble.classList.add('pop');
+                
+                // Remove from DOM after pop animation
+                setTimeout(() => {
+                    bubble.remove();
+                }, 200); 
+            };
+            const timeoutId = setTimeout(popBubble, popTime);
+            // Pop on hover or touch (Apple-like interactivity)
+            bubble.addEventListener('mouseenter', () => {
+                clearTimeout(timeoutId);
+                popBubble();
+            });
+            bubble.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                clearTimeout(timeoutId);
+                popBubble();
+            });
+            // Cleanup if it reaches the end without popping
+            animation.onfinish = () => {
+                if (!isPopped) {
+                    bubble.remove();
+                }
+            };
+        }
+        // Create bubbles periodically
+        setInterval(createBubble, 350); 
+        
+        // Initial burst
+        for(let i=0; i<6; i++) {
+            setTimeout(createBubble, Math.random() * 1200);
+        }
+    </script>
+</body>
+</html>
