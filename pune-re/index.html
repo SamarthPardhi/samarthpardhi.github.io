@@ -18,12 +18,12 @@
         }
         h1.title {
             font-size: 6rem;
-            font-weight: 800;
+            font-weight: 200;
             color: #000000;
             z-index: 10;
             pointer-events: none;
             margin: 0;
-            letter-spacing: -0.04em;
+            letter-spacing: 0.1em;
         }
         .bubble {
             position: absolute;
@@ -81,24 +81,33 @@
     </style>
 </head>
 <body>
-    <h1 class="title">Working</h1>
+    <h1 class="title">working</h1>
     <script>
         function createBubble() {
             const bubble = document.createElement('div');
             bubble.classList.add('bubble');
             
-            // Random size between 40px and 110px
-            const size = Math.random() * 70 + 40;
+            // Random size between 80px and 180px
+            const size = Math.random() * 100 + 80;
             bubble.style.width = `${size}px`;
             bubble.style.height = `${size}px`;
             
             // Random starting horizontal position
             bubble.style.left = `${Math.random() * 100}vw`;
             
-            // Colorful iridescent tint
+            // Colorful edge tint
             const hue1 = Math.floor(Math.random() * 360);
-            const hue2 = (hue1 + 60) % 360; // Analogous color for smooth gradient
-            bubble.style.background = `radial-gradient(circle at 30% 30%, hsla(${hue1}, 100%, 75%, 0.35), hsla(${hue2}, 100%, 65%, 0.1))`;
+            const hue2 = (hue1 + 60) % 360; 
+            
+            bubble.style.boxShadow = `
+                inset 0 0 20px rgba(255, 255, 255, 0.9),
+                inset 10px 0 40px hsla(${hue1}, 100%, 75%, 0.4),
+                inset -10px 0 40px hsla(${hue2}, 100%, 65%, 0.4),
+                inset 0 -10px 40px rgba(255, 255, 255, 0.5),
+                0 4px 20px rgba(0, 0, 0, 0.05)
+            `;
+            bubble.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+            bubble.style.background = 'none';
             
             // Random animation duration between 5s and 10s
             const duration = Math.random() * 5 + 5;
