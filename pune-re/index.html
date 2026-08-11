@@ -1,177 +1,198 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Working</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #ffffff;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-        h1.title {
-            font-size: 6rem;
-            font-weight: 200;
-            color: #000000;
-            z-index: 10;
-            pointer-events: none;
-            margin: 0;
-            letter-spacing: 0.1em;
-        }
-        .bubble {
-            position: absolute;
-            bottom: -150px;
-            border-radius: 50%;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            box-shadow: 
-                inset 0 0 20px rgba(255, 255, 255, 0.9),
-                inset 10px 0 40px rgba(255, 255, 255, 0.5),
-                inset -10px 0 40px rgba(255, 255, 255, 0.5),
-                inset 0 -10px 40px rgba(255, 255, 255, 0.5),
-                0 4px 20px rgba(0, 0, 0, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            cursor: pointer;
-            z-index: 1;
-            /* Apple-like glossy highlight using pseudo-element */
-            overflow: hidden;
-            scale: 1;
-            transform-origin: center center;
-        }
-        /* Glossy reflection */
-        .bubble::after {
-            content: '';
-            position: absolute;
-            top: 15%;
-            left: 20%;
-            width: 40%;
-            height: 25%;
-            background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0));
-            border-radius: 50%;
-            transform: rotate(-45deg);
-            pointer-events: none;
-        }
-        .pop {
-            animation: popEffect 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards !important;
-        }
-        @keyframes popEffect {
-            0% {
-                scale: 1;
-                opacity: 1;
-                filter: brightness(1);
-            }
-            50% {
-                scale: 1.15;
-                opacity: 0.8;
-                filter: brightness(1.2);
-            }
-            100% {
-                scale: 1.3;
-                opacity: 0;
-                filter: brightness(1.5);
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Working</title>
+<style>
+  :root {
+    --ink: #1d1d1f;
+    --mist: #86868b;
+    --canvas: #fbfbfd;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--canvas);
+  }
+  body {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* ambient background: a quiet field of drifting light, not a light show */
+  .orbs {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+  }
+  .orb--a {
+    top: -8%; left: 4%;
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(10,20,45,0.05), rgba(10,20,45,0) 70%);
+    animation: driftA 26s ease-in-out infinite alternate;
+  }
+  .orb--b {
+    bottom: -14%; right: 2%;
+    width: 460px; height: 460px;
+    background: radial-gradient(circle, rgba(45,28,10,0.045), rgba(45,28,10,0) 70%);
+    animation: driftB 32s ease-in-out infinite alternate;
+  }
+  .orb--c {
+    top: 55%; left: -12%;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(0,0,0,0.04), rgba(0,0,0,0) 70%);
+    animation: driftC 22s ease-in-out infinite alternate;
+  }
+  .orb--d {
+    top: 6%; right: -8%;
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(0,0,0,0.035), rgba(0,0,0,0) 70%);
+    animation: driftD 28s ease-in-out infinite alternate;
+  }
+  .orb--center {
+    top: 50%; left: 50%;
+    width: 46vmax; height: 46vmax;
+    margin: -23vmax 0 0 -23vmax;
+    background: radial-gradient(circle, rgba(0,0,0,0.035), rgba(0,0,0,0) 70%);
+    animation: breathe 7s ease-in-out infinite;
+  }
+
+  @keyframes driftA {
+    0%   { transform: translate(0, 0) scale(1); }
+    50%  { transform: translate(40px, 60px) scale(1.08); }
+    100% { transform: translate(-20px, 20px) scale(0.96); }
+  }
+  @keyframes driftB {
+    0%   { transform: translate(0, 0) scale(1); }
+    50%  { transform: translate(-50px, -40px) scale(1.05); }
+    100% { transform: translate(30px, -70px) scale(0.95); }
+  }
+  @keyframes driftC {
+    0%   { transform: translate(0, 0) scale(1); }
+    50%  { transform: translate(35px, -30px) scale(1.06); }
+    100% { transform: translate(10px, 40px) scale(0.97); }
+  }
+  @keyframes driftD {
+    0%   { transform: translate(0, 0) scale(1); }
+    50%  { transform: translate(-30px, 35px) scale(1.07); }
+    100% { transform: translate(-45px, -15px) scale(0.95); }
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.65; }
+    50%      { transform: scale(1.08); opacity: 1; }
+  }
+
+  .stage {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    opacity: 0;
+    animation: rise 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* the signature: the classic 12-blade activity indicator */
+  .spinner {
+    position: relative;
+    width: 42px;
+    height: 42px;
+  }
+  .spinner div {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 3px;
+    height: 11px;
+    margin-left: -1.5px;
+    border-radius: 2px;
+    background: var(--ink);
+    transform-origin: 1.5px 21px;
+    animation: fade 1.2s linear infinite;
+  }
+  @keyframes fade {
+    0%   { opacity: 1; }
+    100% { opacity: 0.12; }
+  }
+  .spinner div:nth-child(1)  { transform: rotate(0deg);   animation-delay: -1.1s; }
+  .spinner div:nth-child(2)  { transform: rotate(30deg);  animation-delay: -1.0s; }
+  .spinner div:nth-child(3)  { transform: rotate(60deg);  animation-delay: -0.9s; }
+  .spinner div:nth-child(4)  { transform: rotate(90deg);  animation-delay: -0.8s; }
+  .spinner div:nth-child(5)  { transform: rotate(120deg); animation-delay: -0.7s; }
+  .spinner div:nth-child(6)  { transform: rotate(150deg); animation-delay: -0.6s; }
+  .spinner div:nth-child(7)  { transform: rotate(180deg); animation-delay: -0.5s; }
+  .spinner div:nth-child(8)  { transform: rotate(210deg); animation-delay: -0.4s; }
+  .spinner div:nth-child(9)  { transform: rotate(240deg); animation-delay: -0.3s; }
+  .spinner div:nth-child(10) { transform: rotate(270deg); animation-delay: -0.2s; }
+  .spinner div:nth-child(11) { transform: rotate(300deg); animation-delay: -0.1s; }
+  .spinner div:nth-child(12) { transform: rotate(330deg); animation-delay: 0s; }
+
+  h1 {
+    font-size: clamp(1.5rem, 4vw, 2.3rem);
+    font-weight: 200;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.55; }
+  }
+
+  footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 14px;
+    z-index: 2;
+    text-align: center;
+    font-size: 8px;
+    letter-spacing: 0.06em;
+    color: rgba(0, 0, 0, 0.14);
+    user-select: none;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .orb { animation: none; }
+    .stage { opacity: 1; transform: none; animation: none; }
+    h1 { animation: none; opacity: 1; }
+  }
+</style>
 </head>
 <body>
-    <h1 class="title">working</h1>
-    <script>
-        function createBubble() {
-            const bubble = document.createElement('div');
-            bubble.classList.add('bubble');
-            
-            // Random size between 80px and 180px
-            const size = Math.random() * 100 + 80;
-            bubble.style.width = `${size}px`;
-            bubble.style.height = `${size}px`;
-            
-            // Random starting horizontal position
-            bubble.style.left = `${Math.random() * 100}vw`;
-            
-            // Colorful edge tint
-            const hue1 = Math.floor(Math.random() * 360);
-            const hue2 = (hue1 + 60) % 360; 
-            
-            bubble.style.boxShadow = `
-                inset 0 0 20px rgba(255, 255, 255, 0.9),
-                inset 10px 0 40px hsla(${hue1}, 100%, 75%, 0.4),
-                inset -10px 0 40px hsla(${hue2}, 100%, 65%, 0.4),
-                inset 0 -10px 40px rgba(255, 255, 255, 0.5),
-                0 4px 20px rgba(0, 0, 0, 0.05)
-            `;
-            bubble.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-            bubble.style.background = 'none';
-            
-            // Random animation duration between 5s and 10s
-            const duration = Math.random() * 5 + 5;
-            
-            // Wavy animation using Web Animations API and modern translate property
-            const startX = 0;
-            const midX = (Math.random() - 0.5) * 120; // -60px to 60px
-            const endX = (Math.random() - 0.5) * 120; // -60px to 60px
-            
-            const animation = bubble.animate([
-                { translate: `${startX}px 0` },
-                { translate: `${midX}px -60vh` },
-                { translate: `${endX}px -120vh` }
-            ], {
-                duration: duration * 1000,
-                easing: 'linear',
-                fill: 'forwards'
-            });
-            document.body.appendChild(bubble);
-            
-            // Random pop logic (pop between 40% and 90% of the journey)
-            const popTime = (Math.random() * 0.5 + 0.4) * duration * 1000;
-            
-            let isPopped = false;
-            const popBubble = () => {
-                if (isPopped) return;
-                isPopped = true;
-                
-                // Stop the moving animation by pausing it
-                animation.pause();
-                
-                // Add pop effect
-                bubble.classList.add('pop');
-                
-                // Remove from DOM after pop animation
-                setTimeout(() => {
-                    bubble.remove();
-                }, 200); 
-            };
-            const timeoutId = setTimeout(popBubble, popTime);
-            // Pop on hover or touch (Apple-like interactivity)
-            bubble.addEventListener('mouseenter', () => {
-                clearTimeout(timeoutId);
-                popBubble();
-            });
-            bubble.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                clearTimeout(timeoutId);
-                popBubble();
-            });
-            // Cleanup if it reaches the end without popping
-            animation.onfinish = () => {
-                if (!isPopped) {
-                    bubble.remove();
-                }
-            };
-        }
-        // Create bubbles periodically
-        setInterval(createBubble, 350); 
-        
-        // Initial burst
-        for(let i=0; i<6; i++) {
-            setTimeout(createBubble, Math.random() * 1200);
-        }
-    </script>
+  <div class="orbs" aria-hidden="true">
+    <div class="orb orb--a"></div>
+    <div class="orb orb--b"></div>
+    <div class="orb orb--c"></div>
+    <div class="orb orb--d"></div>
+    <div class="orb orb--center"></div>
+  </div>
+  <div class="stage" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true">
+      <div></div><div></div><div></div><div></div>
+      <div></div><div></div><div></div><div></div>
+      <div></div><div></div><div></div><div></div>
+    </div>
+    <h1>Working</h1>
+  </div>
+  <footer>Pune Reinsurance</footer>
 </body>
 </html>
