@@ -4,18 +4,166 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Samarth Pardhi</title>
+
 <style>
+  :root {
+    --text: #1f2328;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+  }
+
   body {
+    position: relative;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
       Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
     font-size: 15px;
     line-height: 1.45;
-    color: #1f2328;
-    background: #ffffff;
+    color: var(--text);
+
+    /* EXACTLY the original page spacing */
     max-width: 760px;
     margin: 0 auto;
     padding: 28px 20px 40px;
+
+    background: transparent;
+    overflow-x: hidden;
   }
+
+
+  /* =========================================================
+     APPLE-STYLE AMBIENT BACKGROUND
+     ========================================================= */
+
+  .ambient {
+    position: fixed;
+    inset: -25%;
+    z-index: -2;
+    overflow: hidden;
+    pointer-events: none;
+    filter: blur(85px);
+    opacity: 0.60;
+  }
+
+  .blob {
+    position: absolute;
+    width: 42vw;
+    height: 42vw;
+    min-width: 420px;
+    min-height: 420px;
+    border-radius: 50%;
+    will-change: transform;
+  }
+
+  .blob.one {
+    background: radial-gradient(
+      circle at 35% 35%,
+      rgba(110, 145, 255, 0.30),
+      rgba(110, 145, 255, 0.10) 45%,
+      transparent 72%
+    );
+
+    animation:
+      driftOne 24s cubic-bezier(.45, 0, .55, 1) infinite alternate;
+  }
+
+  .blob.two {
+    background: radial-gradient(
+      circle at 60% 40%,
+      rgba(255, 150, 210, 0.25),
+      rgba(255, 150, 210, 0.08) 45%,
+      transparent 72%
+    );
+
+    animation:
+      driftTwo 31s cubic-bezier(.45, 0, .55, 1) infinite alternate;
+  }
+
+  .blob.three {
+    background: radial-gradient(
+      circle at 45% 50%,
+      rgba(80, 215, 205, 0.22),
+      rgba(80, 215, 205, 0.06) 48%,
+      transparent 72%
+    );
+
+    animation:
+      driftThree 38s cubic-bezier(.45, 0, .55, 1) infinite alternate;
+  }
+
+  @keyframes driftOne {
+    0% {
+      transform: translate(2vw, 4vh) scale(1);
+    }
+
+    35% {
+      transform: translate(48vw, 12vh) scale(1.10);
+    }
+
+    70% {
+      transform: translate(20vw, 48vh) scale(.90);
+    }
+
+    100% {
+      transform: translate(65vw, 58vh) scale(1.15);
+    }
+  }
+
+  @keyframes driftTwo {
+    0% {
+      transform: translate(65vw, 2vh) scale(.92);
+    }
+
+    40% {
+      transform: translate(38vw, 42vh) scale(1.15);
+    }
+
+    75% {
+      transform: translate(4vw, 60vh) scale(.95);
+    }
+
+    100% {
+      transform: translate(52vw, 18vh) scale(1.10);
+    }
+  }
+
+  @keyframes driftThree {
+    0% {
+      transform: translate(25vw, 65vh) scale(1);
+    }
+
+    50% {
+      transform: translate(68vw, 28vh) scale(1.18);
+    }
+
+    100% {
+      transform: translate(12vw, 10vh) scale(.94);
+    }
+  }
+
+
+  /* Very subtle texture */
+
+  .grain {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.018;
+
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+  }
+
+
+  /* =========================================================
+     ORIGINAL TYPOGRAPHY
+     ========================================================= */
 
   h1, h2, h3 {
     font-weight: 600;
@@ -24,15 +172,11 @@
 
   h1 {
     font-size: 1.85em;
-    padding-bottom: 0.2em;
-    border-bottom: 1px solid #d1d9e0;
     margin: 0 0 10px;
   }
 
   h2 {
     font-size: 1.35em;
-    padding-bottom: 0.2em;
-    border-bottom: 1px solid #d1d9e0;
     margin: 18px 0 10px;
   }
 
@@ -63,19 +207,91 @@
     text-decoration: underline;
   }
 
+
+  /* =========================================================
+     BOTTOM SIGNATURE
+     ========================================================= */
+
+  .signature {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+
+    font-size: 9px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: rgba(31, 35, 40, 0.38);
+
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+
+  /* =========================================================
+     MOBILE — ORIGINAL SPACING PRESERVED
+     ========================================================= */
+
   @media (max-width: 600px) {
-    body { padding: 18px 16px 32px; font-size: 14.5px; }
-    h1 { font-size: 1.55em; }
-    h2 { font-size: 1.2em; }
+    body {
+      padding: 18px 16px 32px;
+      font-size: 14.5px;
+    }
+
+    h1 {
+      font-size: 1.55em;
+    }
+
+    h2 {
+      font-size: 1.2em;
+    }
+
+    .ambient {
+      filter: blur(70px);
+      opacity: 0.52;
+    }
+
+    .blob {
+      width: 70vw;
+      height: 70vw;
+      min-width: 300px;
+      min-height: 300px;
+    }
+  }
+
+
+  @media (prefers-reduced-motion: reduce) {
+    .blob {
+      animation: none !important;
+    }
   }
 </style>
 </head>
+
 <body>
 
+<!-- Moving ambient background -->
+<div class="ambient" aria-hidden="true">
+  <div class="blob one"></div>
+  <div class="blob two"></div>
+  <div class="blob three"></div>
+</div>
+
+<div class="grain" aria-hidden="true"></div>
+
+
 <h1>Samarth Pardhi</h1>
-<p>email me at <a href="mailto:samarthpardhi307@gmail.com">samarthpardhi307@gmail.com</a></p>
+
+<p>
+  email me at
+  <a href="mailto:samarthpardhi307@gmail.com">
+    samarthpardhi307@gmail.com
+  </a>
+</p>
+
 
 <h2>Current Research Interests</h2>
+
 <ul>
   <li>Extreme Value Theory</li>
   <li>Optimal Transport</li>
@@ -83,30 +299,70 @@
   <li>Bayesian Frameworks</li>
 </ul>
 
+
 <h2>Projects</h2>
 
-<h3>Ongoing Projects</h3>
 <ul>
-  <li>Minimizing portfolio-like risk under rare events using Extreme Value Theory and Distributionally Robust Optimization frameworks (Supervisor: Dr. Anand Deo)</li>
+  <li>
+    [Ongoing] Minimizing portfolio-like risk under rare events using Extreme Value
+    Theory and Distributionally Robust Optimization frameworks
+    (Supervisor: Dr. Anand Deo)
+  </li>
+  <li>
+    [Past] Heterogeneous mixture modelling and simultaneous feature selection
+    in a Bayesian way (Supervisor: Dr. Leelavati Narlikar)
+  </li>
 </ul>
 
-<h3>Past Projects</h3>
-<ul>
-  <li>Heterogeneous mixture modelling and simultaneous feature selection in a Bayesian way (Supervisor: Dr. Leelavati Narlikar)</li>
-</ul>
 
 <h2>Talks</h2>
+
 <ul>
-  <li>Contributed talk at <a href="https://crear.essec.edu/crear-events/conferences-workshops/2026-riskanalysismanag-emergentrisks" target="_blank" rel="noopener noreferrer">International Workshop on Advances in Risk Analysis &amp; Management: A focus on Emergent Risks</a>; Singapore; Feb 27, 2026</li>
-  <li>Contributed talk at <a href="https://sites.google.com/view/cmf2026/about" target="_blank" rel="noopener noreferrer">Conference on Mathematical Finance</a>; Pune; June 11, 2026</li>
+
+  
+  <li>
+    Contributed talk at
+    <a
+      href="https://sites.google.com/view/cmf2026/about"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Conference on Mathematical Finance
+    </a>;
+    Pune; June 11, 2026
+  </li>
+  
+  <li>
+    Contributed talk at
+    <a
+      href="https://crear.essec.edu/crear-events/conferences-workshops/2026-riskanalysismanag-emergentrisks"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      International Workshop on Advances in Risk Analysis &amp; Management:
+      A focus on Emergent Risks
+    </a>;
+    Singapore; Feb 27, 2026
+  </li>
+
 </ul>
+
 
 <h2>Education</h2>
+
 <ul>
-  <li>Completed my BS and MS with amazing people at IISER Pune. Spent almost a year as a research associate at IIM Bangalore's beautiful campus before going to ESSEC Paris for PhD.</li>
+  <li>
+    Completed my BS and MS with amazing people at IISER Pune.
+    Spent almost a year as a research associate at IIM Bangalore's
+    beautiful campus before going to ESSEC Paris for PhD.
+  </li>
 </ul>
 
+
 <h2>My Past</h2>
+
+
+<div class="signature">Samarth Pardhi</div>
 
 </body>
 </html>
